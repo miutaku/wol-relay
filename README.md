@@ -159,6 +159,18 @@ macOS / Linux:
 sh ./packaging/install-unix.sh
 ```
 
+Raspberry Pi などを GUI なしの Agent ノードとして常駐させる場合:
+
+```bash
+INSTALL_MODE=agent sh ./packaging/install-unix.sh
+```
+
+このモードでは systemd user service として `wol-relay agent -light` を登録し、GUI と通知を使わずに軽量ヘッドレスで起動します。インストール後の状態確認は次の通りです。
+
+```bash
+systemctl --user status wol-relay.service
+```
+
 アンインストールする場合:
 
 ```bash
@@ -171,7 +183,7 @@ sh ./packaging/uninstall-unix.sh
 REMOVE_CONFIG=1 sh ./packaging/uninstall-unix.sh
 ```
 
-インストール後はデスクトップやアプリケーション一覧の `wol-relay` から起動できます。
+通常インストール後はデスクトップやアプリケーション一覧の `wol-relay` から起動できます。`INSTALL_MODE=agent` で入れた場合はデスクトップアプリではなく、軽量 Agent としてバックグラウンドで動きます。
 
 ## 使い方
 
