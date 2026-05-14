@@ -5,6 +5,10 @@ package nativegui
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -58,8 +62,6 @@ func Run(ctx context.Context, opts Options) error {
 	allowInsecure.SetChecked(cfg.Auth.AllowInsecure)
 	notificationsEnabled := widget.NewCheck("OS通知を有効化", nil)
 	notificationsEnabled.SetChecked(cfg.Notifications.Enabled)
-	lightweight := widget.NewCheck("軽量モード", nil)
-	lightweight.SetChecked(cfg.Lightweight)
 	syncSettings := func() {
 		cfg := opts.Agent.Config()
 		nodeName.SetText(cfg.NodeName)
@@ -71,7 +73,6 @@ func Run(ctx context.Context, opts Options) error {
 		sharedSecret.SetText(cfg.Auth.SharedSecret)
 		allowInsecure.SetChecked(cfg.Auth.AllowInsecure)
 		notificationsEnabled.SetChecked(cfg.Notifications.Enabled)
-		lightweight.SetChecked(cfg.Lightweight)
 		nodeLabel.SetText(cfg.NodeName)
 	}
 
@@ -103,6 +104,17 @@ func Run(ctx context.Context, opts Options) error {
 	hostSaveButton := widget.NewButton("追加", nil)
 	cancelHostEditButton := widget.NewButton("編集をキャンセル", nil)
 	cancelHostEditButton.Hide()
+	openConfigButton := widget.NewButton("設定ファイルのフォルダを開く", func() {
+		if opts.ConfigPath == "" {
+			status.SetText("設定ファイルの場所がわかりません。")
+			return
+		}
+		if err := openPath(filepath.Dir(opts.ConfigPath)); err != nil {
+			status.SetText(err.Error())
+			return
+		}
+		status.SetText("設定ファイルのフォルダを開きました。")
+	})
 	editingHost := ""
 	clearHostForm := func() {
 		hostName.SetText("")
@@ -218,7 +230,6 @@ func Run(ctx context.Context, opts Options) error {
 		cfg.AllowedMagicSources = splitCSV(allowedMagicSources.Text)
 		cfg.DefaultRelay = strings.TrimSpace(defaultRelay.Text)
 		cfg.DefaultTarget = strings.TrimSpace(defaultTarget.Text)
-		cfg.Lightweight = lightweight.Checked
 		cfg.Auth.SharedSecret = strings.TrimSpace(sharedSecret.Text)
 		cfg.Auth.AllowInsecure = allowInsecure.Checked
 		cfg.Notifications.Enabled = notificationsEnabled.Checked
@@ -304,15 +315,12 @@ func Run(ctx context.Context, opts Options) error {
 		),
 		sectionCard("安全設定と表示設定",
 			sampled("共有シークレット", "長いランダム文字列", "Agent同士が本物か確認するための設定です。通信するAgentで同じ値にします。", sharedSecret),
-			container.NewVBox(
-				helpText("安全設定と表示設定"),
-				allowInsecure,
-				helpText("通常はオフにしてください。オンにするとAgent間の認証確認を省略します。"),
-				notificationsEnabled,
-				helpText("起動依頼や起動確認の結果をOSの通知に表示します。"),
-				lightweight,
-				helpText("GUIと通知を使わず、Raspberry Piなどで常駐させる用途の設定です。"),
-			),
+			fieldCard("HMAC認証を無効化", "通常はオフにしてください。オンにするとAgent間の認証確認を省略します。", allowInsecure),
+			fieldCard("OS通知を有効化", "起動依頼や起動確認の結果をOSの通知に表示します。", notificationsEnabled),
+			fieldCard("軽量モード", "GUIからは変更できません。Raspberry Piなどで常駐させる場合は、INSTALL_MODE=agent または wol-relay agent -light で起動します。", helpText("CLI/インストールモード専用")),
+		),
+		sectionCard("設定ファイル",
+			fieldCard("設定ファイルの直接編集", "GUIで変更できない項目や細かい設定を変える場合は、設定ファイルを編集してください。編集後はアプリを再起動すると反映されます。", container.NewVBox(helpText(opts.ConfigPath), openConfigButton)),
 		),
 		saveSettingsButton,
 	)
@@ -341,11 +349,12 @@ func Run(ctx context.Context, opts Options) error {
 	)
 
 	header := container.NewBorder(nil, nil, widget.NewLabel("wol-relay"), nodeLabel)
+	repoURL, _ := url.Parse("https://github.com/miutaku/wol-relay")
 	intro := container.NewVBox(
 		widget.NewLabelWithStyle("Wake on LAN を L2 を超えて安全に届けます", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		helpText("wol-relay は、このPC上の 適当なアプリケーションやシステムによって送出されるマジックパケットを検知し、対象PCが別のLANにいる場合は、そのLAN側のAgentへHMAC署名付きで起動依頼を送ります。"),
 		helpText("ルーターを越えられない通常のWake on LANを、許可したAgent間だけで安全に中継するためのアプリです。"),
-		helpText("GitHub: https://github.com/miutaku/wol-relay"),
+		widget.NewHyperlink("GitHub: https://github.com/miutaku/wol-relay", repoURL),
 	)
 	tabs := container.NewAppTabs(
 		container.NewTabItem("全体設定", container.NewVScroll(settingsForm)),
@@ -390,17 +399,34 @@ func checkLabel(check config.CheckConfig) string {
 }
 
 func sampled(label string, sample string, description string, object fyne.CanvasObject) fyne.CanvasObject {
-	return container.NewVBox(widget.NewLabel(label+"  例: "+sample), helpText(description), object)
+	return fieldCard(label, "例: "+sample+"\n"+description, object)
 }
 
 func sectionCard(title string, objects ...fyne.CanvasObject) fyne.CanvasObject {
-	return widget.NewCard(title, "", container.NewGridWithColumns(2, objects...))
+	return widget.NewCard(title, "", container.NewVBox(objects...))
+}
+
+func fieldCard(title string, description string, object fyne.CanvasObject) fyne.CanvasObject {
+	return widget.NewCard(title, description, object)
 }
 
 func helpText(value string) *widget.Label {
 	label := widget.NewLabel(value)
 	label.Wrapping = fyne.TextWrapWord
 	return label
+}
+
+func openPath(path string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("explorer", path)
+	case "darwin":
+		cmd = exec.Command("open", path)
+	default:
+		cmd = exec.Command("xdg-open", path)
+	}
+	return cmd.Start()
 }
 
 func broadcastLabel(broadcast string) string {

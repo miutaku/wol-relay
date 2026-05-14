@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -44,6 +45,8 @@ func (s Server) Run(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", s.handleIndex)
 	mux.HandleFunc("GET /api/config", s.handleConfig)
+	mux.HandleFunc("GET /api/config-path", s.handleConfigPath)
+	mux.HandleFunc("POST /api/open-config-dir", s.handleOpenConfigDir)
 	mux.HandleFunc("PUT /api/config", s.handleUpdateConfig)
 	mux.HandleFunc("POST /api/hosts", s.handleAddHost)
 	mux.HandleFunc("DELETE /api/hosts", s.handleDeleteHost)
@@ -150,6 +153,22 @@ func (s Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, s.Agent.Config())
 }
 
+func (s Server) handleConfigPath(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{"path": s.ConfigPath, "dir": filepath.Dir(s.ConfigPath)})
+}
+
+func (s Server) handleOpenConfigDir(w http.ResponseWriter, _ *http.Request) {
+	if s.ConfigPath == "" {
+		http.Error(w, "config path is unknown", http.StatusBadRequest)
+		return
+	}
+	if err := openPath(filepath.Dir(s.ConfigPath)); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 func (s Server) handleUpdateConfig(w http.ResponseWriter, req *http.Request) {
 	var cfg config.Config
 	if err := json.NewDecoder(req.Body).Decode(&cfg); err != nil {
@@ -233,14 +252,18 @@ func trimStrings(values []string) []string {
 }
 
 func openBrowser(url string) {
+	_ = openPath(url)
+}
+
+func openPath(path string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", path)
 	case "darwin":
-		cmd = exec.Command("open", url)
+		cmd = exec.Command("open", path)
 	default:
-		cmd = exec.Command("xdg-open", url)
+		cmd = exec.Command("xdg-open", path)
 	}
-	_ = cmd.Start()
+	return cmd.Start()
 }

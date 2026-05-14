@@ -71,7 +71,7 @@
     }
     .form {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: 1fr;
       gap: 10px;
     }
     .category {
@@ -90,6 +90,15 @@
       border-radius: 8px;
       padding: 12px;
       background: color-mix(in srgb, CanvasText 3%, Canvas);
+    }
+    .field.disabled {
+      opacity: .62;
+      background: color-mix(in srgb, CanvasText 7%, Canvas);
+    }
+    .path {
+      overflow-wrap: anywhere;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 12px;
     }
     label {
       display: grid;
@@ -215,7 +224,16 @@
           <label class="field">共有シークレット <span class="sample">例: 長いランダム文字列</span><span class="desc">Agent同士が本物か確認するための合言葉です。通信するAgentで同じ値にします。</span><input id="sharedSecret" autocomplete="off" placeholder="change-me-long-random-secret"></label>
           <label class="field"><input id="allowInsecure" type="checkbox">HMAC認証を無効化 <span class="desc">通常はオフにしてください。オンにするとAgent間の認証確認を省略します。</span></label>
           <label class="field"><input id="notificationsEnabled" type="checkbox">OS通知を有効化 <span class="desc">起動依頼や起動確認の結果をOSの通知に表示します。</span></label>
-          <label class="field"><input id="lightweight" type="checkbox">軽量モード <span class="desc">GUIと通知を使わず、Raspberry Piなどで常駐させる用途の設定です。</span></label>
+          <div class="field disabled">軽量モード <span class="desc">GUIからは変更できません。Raspberry Piなどで常駐させる場合は、INSTALL_MODE=agent または wol-relay agent -light で起動します。</span></div>
+        </div>
+      </div>
+      <div class="category">
+        <h3>設定ファイル</h3>
+        <div class="field">
+          設定ファイルの直接編集
+          <span class="desc">GUIで変更できない項目や細かい設定を変える場合は、設定ファイルを編集してください。編集後はアプリを再起動すると反映されます。</span>
+          <div id="configPath" class="path"></div>
+          <button id="openConfigDir" type="button">設定ファイルのフォルダを開く</button>
         </div>
       </div>
       <button id="saveSettings" type="button">全体設定を保存</button>
@@ -264,6 +282,8 @@
     const status = document.querySelector("#status");
     const node = document.querySelector("#node");
     const saveSettings = document.querySelector("#saveSettings");
+    const openConfigDir = document.querySelector("#openConfigDir");
+    const configPath = document.querySelector("#configPath");
     const addHost = document.querySelector("#addHost");
     const cancelHostEdit = document.querySelector("#cancelHostEdit");
     const hostFormTitle = document.querySelector("#hostFormTitle");
@@ -276,7 +296,6 @@
     const sharedSecret = document.querySelector("#sharedSecret");
     const allowInsecure = document.querySelector("#allowInsecure");
     const notificationsEnabled = document.querySelector("#notificationsEnabled");
-    const lightweight = document.querySelector("#lightweight");
     const hostName = document.querySelector("#hostName");
     const hostMac = document.querySelector("#hostMac");
     const hostIp = document.querySelector("#hostIp");
@@ -354,7 +373,7 @@
       sharedSecret.value = cfg.auth?.shared_secret || "";
       allowInsecure.checked = !!cfg.auth?.allow_insecure;
       notificationsEnabled.checked = !!cfg.notifications?.enabled;
-      lightweight.checked = !!cfg.lightweight;
+      loadConfigPath();
       hosts.innerHTML = "";
       if (cfg.hosts.length === 0) {
         status.textContent = "起こしたいPCやサーバーを追加してください。";
@@ -374,6 +393,30 @@
         el.querySelector(".edit").addEventListener("click", () => loadHostForm(host));
         el.querySelector(".delete").addEventListener("click", () => deleteHost(label));
         hosts.appendChild(el);
+      }
+    }
+
+    async function loadConfigPath() {
+      try {
+        const res = await fetch("/api/config-path");
+        const payload = await res.json();
+        configPath.textContent = payload.path || "";
+      } catch {
+        configPath.textContent = "";
+      }
+    }
+
+    async function openConfigDirectory() {
+      openConfigDir.disabled = true;
+      try {
+        const res = await fetch("/api/open-config-dir", {method: "POST"});
+        const text = await res.text();
+        if (!res.ok) throw new Error(text);
+        status.textContent = "設定ファイルのフォルダを開きました。";
+      } catch (err) {
+        status.textContent = err.message;
+      } finally {
+        openConfigDir.disabled = false;
       }
     }
 
@@ -441,7 +484,6 @@
         cfg.allowed_magic_sources = splitList(allowedMagicSources.value);
         cfg.default_relay = defaultRelay.value;
         cfg.default_target = defaultTarget.value;
-        cfg.lightweight = lightweight.checked;
         cfg.auth = {
           shared_secret: sharedSecret.value,
           allow_insecure: allowInsecure.checked
@@ -507,6 +549,7 @@
 
     wake.addEventListener("click", () => sendWake(target.value));
     saveSettings.addEventListener("click", saveConfig);
+    openConfigDir.addEventListener("click", openConfigDirectory);
     addHost.addEventListener("click", saveHost);
     cancelHostEdit.addEventListener("click", () => {
       clearHostForm();

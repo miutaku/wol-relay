@@ -155,10 +155,6 @@ func runGUIWithOptions(configPath string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if cfg.Lightweight {
-		return agent.New(cfg).Run(ctx)
-	}
-
 	app := agent.New(cfg)
 	agentErrCh := make(chan error, 1)
 	go func() {

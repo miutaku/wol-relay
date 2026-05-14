@@ -209,6 +209,8 @@ GUI と通知を使わない軽量ヘッドレスモードで起動します。
 ./wol-relay agent -config wol-relay.json -light
 ```
 
+軽量モードは Raspberry Pi などの Agent 常駐向けです。GUI からは切り替えず、CLI の `-light` または `INSTALL_MODE=agent` のインストールで使います。誤って設定ファイルに `lightweight: true` が残っていても、`wol-relay gui` は設定を直せるように GUI を開きます。
+
 GUI を使う場合は、次のコマンドでネイティブアプリ画面が開きます。
 
 ```bash
