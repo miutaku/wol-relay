@@ -289,43 +289,59 @@ func Run(ctx context.Context, opts Options) error {
 
 	settingsForm := container.NewVBox(
 		widget.NewLabelWithStyle("全体設定", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		helpText("このPCで動く wol-relay Agent 全体の設定です。家庭内LANだけで使う場合は、多くの項目は初期値のままで使えます。"),
 		container.NewGridWithColumns(2,
-			sampled("Agent名", "desktop", nodeName),
-			sampled("REST待ち受け", "127.0.0.1:8080 / 192.168.20.10:8080", listenHTTP),
-			sampled("Magic待ち受け", ":9, 0.0.0.0:9009", listenMagic),
-			sampled("Magic送信元許可", "192.168.10.0/24, 192.168.10.50", allowedMagicSources),
-			sampled("標準送信先Agent URL", "http://192.168.20.10:8080", defaultRelay),
-			sampled("標準ブロードキャスト", "255.255.255.255:9 / 192.168.10.255:9", defaultTarget),
-			sampled("共有シークレット", "長いランダム文字列", sharedSecret),
-			container.NewVBox(allowInsecure, notificationsEnabled, lightweight),
+			sampled("このPCの名前", "desktop", "他のPCから見たときの識別名です。許可設定でも使います。", nodeName),
+			sampled("他のAgentから受け付けるアドレス", "127.0.0.1:8080 / 192.168.20.10:8080", "別セグメントのAgentから起動依頼を受けるPCだけ、LANのIPアドレスにします。", listenHTTP),
+			sampled("マジックパケット検知ポート", ":9", "他のWake on LANツールが送った信号を、このアプリが検知するためのUDPポートです。", listenMagic),
+			sampled("検知を許可する送信元", "192.168.10.0/24", "空なら制限しません。特定のPCやLANからの信号だけ受けたい時に指定します。", allowedMagicSources),
+			sampled("標準の送信先Agent", "http://192.168.20.10:8080", "別セグメントへ起動依頼する時の標準の宛先です。各ホストで個別指定もできます。", defaultRelay),
+			sampled("標準のブロードキャスト宛先", "255.255.255.255:9 / 192.168.10.255:9", "同じLAN内のPCを起こす時に送る宛先です。通常は初期値で動きます。", defaultTarget),
+			sampled("共有シークレット", "長いランダム文字列", "Agent同士が本物か確認するための設定です。通信するAgentで同じ値にします。", sharedSecret),
+			container.NewVBox(
+				helpText("安全設定と表示設定"),
+				allowInsecure,
+				helpText("通常はオフにしてください。オンにするとAgent間の認証確認を省略します。"),
+				notificationsEnabled,
+				helpText("起動依頼や起動確認の結果をOSの通知に表示します。"),
+				lightweight,
+				helpText("GUIと通知を使わず、Raspberry Piなどで常駐させる用途の設定です。"),
+			),
 		),
 		saveSettingsButton,
 	)
 
 	hostForm := container.NewVBox(
 		hostFormTitle,
+		helpText("起こしたいPCやサーバーを登録します。同じLAN内なら名前とMACアドレスだけでも始められます。別セグメントの場合は送信先Agent URLも指定します。"),
 		container.NewGridWithColumns(2,
-			sampled("名前", "nas", hostName),
-			sampled("MACアドレス", "00:11:22:33:44:55", hostMAC),
-			sampled("IPアドレス", "192.168.10.20", hostIP),
-			sampled("ブロードキャスト", "192.168.10.255:9", hostBroadcast),
-			sampled("送信先Agent URL", "http://192.168.20.10:8080", hostRelay),
-			sampled("許可する送信元Agent名", "desktop, laptop", hostAllowedBy),
-			checkEnabled,
-			sampled("確認方法", "tcp / icmp", checkMethod),
-			sampled("確認TCPポート", "22 / 3389", checkPort),
-			sampled("確認タイムアウト", "2m", checkTimeout),
-			sampled("確認間隔", "3s", checkInterval),
+			sampled("表示名", "nas", "Wakeボタンや一覧に出る名前です。わかりやすい名前を付けます。", hostName),
+			sampled("MACアドレス", "00:11:22:33:44:55", "起こしたいPCの有線LANまたは無線LANアダプターのMACアドレスです。", hostMAC),
+			sampled("IPアドレス", "192.168.10.20", "起動できたか確認する時に使います。起動確認を使わないなら空でも構いません。", hostIP),
+			sampled("ブロードキャスト宛先", "192.168.10.255:9", "同じLAN内へWake信号を送る宛先です。空なら全体設定の標準値を使います。", hostBroadcast),
+			sampled("送信先Agent URL", "http://192.168.20.10:8080", "別のLANにいるPCを起こす時、そのLAN側で動いているAgentのURLを入れます。", hostRelay),
+			sampled("許可する送信元Agent名", "desktop, laptop", "このホストを起こしてよいAgent名です。空なら認証済みAgentを許可します。", hostAllowedBy),
+			container.NewVBox(checkEnabled, helpText("Wake信号を送った後、PCが本当に起動したか確認します。")),
+			sampled("確認方法", "tcp / icmp", "tcpは指定ポートに接続できるか、icmpはping応答があるかで確認します。", checkMethod),
+			sampled("確認TCPポート", "22 / 3389", "確認方法がtcpの時に使います。SSHなら22、リモートデスクトップなら3389です。", checkPort),
+			sampled("確認を待つ時間", "2m", "この時間を過ぎても応答がなければ、起動未確認として扱います。", checkTimeout),
+			sampled("確認の間隔", "3s", "起動確認を何秒ごとに試すかです。通常は初期値で十分です。", checkInterval),
 		),
 		container.NewHBox(hostSaveButton, cancelHostEditButton),
 	)
 
 	header := container.NewBorder(nil, nil, widget.NewLabel("wol-relay"), nodeLabel)
+	intro := container.NewVBox(
+		widget.NewLabelWithStyle("Wake on LAN を L2 を超えて安全に届けます", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		helpText("wol-relay は、このPC上の 適当なアプリケーションやシステムによって送出されるマジックパケットを検知し、対象PCが別のLANにいる場合は、そのLAN側のAgentへHMAC署名付きで起動依頼を送ります。"),
+		helpText("ルーターを越えられない通常のWake on LANを、許可したAgent間だけで安全に中継するためのアプリです。"),
+		helpText("GitHub: https://github.com/miutaku/wol-relay"),
+	)
 	tabs := container.NewAppTabs(
 		container.NewTabItem("全体設定", container.NewVScroll(settingsForm)),
 		container.NewTabItem("ホスト", container.NewVScroll(container.NewVBox(hostForm, list))),
 	)
-	content := container.NewBorder(header, status, nil, nil, tabs)
+	content := container.NewBorder(container.NewVBox(header, intro), status, nil, nil, tabs)
 	window.SetContent(content)
 	refresh()
 
@@ -363,8 +379,14 @@ func checkLabel(check config.CheckConfig) string {
 	return fmt.Sprintf("確認: %s/%d", check.Method, port)
 }
 
-func sampled(label string, sample string, object fyne.CanvasObject) fyne.CanvasObject {
-	return container.NewVBox(widget.NewLabel(label+"  例: "+sample), object)
+func sampled(label string, sample string, description string, object fyne.CanvasObject) fyne.CanvasObject {
+	return container.NewVBox(widget.NewLabel(label+"  例: "+sample), helpText(description), object)
+}
+
+func helpText(value string) *widget.Label {
+	label := widget.NewLabel(value)
+	label.Wrapping = fyne.TextWrapWord
+	return label
 }
 
 func broadcastLabel(broadcast string) string {

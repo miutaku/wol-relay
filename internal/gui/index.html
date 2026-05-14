@@ -53,6 +53,22 @@
       margin: 0;
       font-size: 18px;
     }
+    .intro {
+      border: 1px solid color-mix(in srgb, CanvasText 16%, Canvas);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+      display: grid;
+      gap: 8px;
+    }
+    .intro h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+    .intro a {
+      color: inherit;
+      overflow-wrap: anywhere;
+    }
     .form {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -66,6 +82,11 @@
     .sample {
       opacity: .68;
       font-size: 12px;
+    }
+    .desc {
+      opacity: .78;
+      font-size: 13px;
+      line-height: 1.45;
     }
     input[type="checkbox"] {
       flex: 0 0 auto;
@@ -138,40 +159,47 @@
       <h1>wol-relay</h1>
       <div id="node"></div>
     </header>
+    <section class="intro">
+      <h2>Wake on LAN を L2 を超えて安全に届けます</h2>
+      <p class="desc">wol-relay は、このPC上の Wake 操作やローカルに流れたマジックパケットを検知し、対象PCが別のLANにいる場合は、そのLAN側のAgentへHMAC署名付きで起動依頼を送ります。ルーターを越えられない通常のWake on LANを、許可したAgent間だけで安全に中継するためのアプリです。</p>
+      <a href="https://github.com/miutaku/wol-relay" target="_blank" rel="noreferrer">https://github.com/miutaku/wol-relay</a>
+    </section>
     <div class="toolbar">
       <input id="target" autocomplete="off" placeholder="ホスト名またはMACアドレス">
       <button id="wake">Wake</button>
     </div>
     <section class="setup">
       <h2>全体設定</h2>
+      <p class="desc">このPCで動く wol-relay Agent 全体の設定です。家庭内LANだけで使う場合は、多くの項目は初期値のままで使えます。</p>
       <div class="form">
-        <label>Agent名 <span class="sample">例: desktop</span><input id="nodeName" autocomplete="off" placeholder="desktop"></label>
-        <label>REST待ち受け <span class="sample">例: 127.0.0.1:8080 / 192.168.20.10:8080</span><input id="listenHttp" autocomplete="off" placeholder="127.0.0.1:8080"></label>
-        <label>Magic待ち受け <span class="sample">例: :9, 0.0.0.0:9009</span><input id="listenMagic" autocomplete="off" placeholder=":9"></label>
-        <label>Magic送信元許可 <span class="sample">例: 192.168.10.0/24, 192.168.10.50</span><input id="allowedMagicSources" autocomplete="off" placeholder="192.168.10.0/24"></label>
-        <label>標準送信先Agent URL <span class="sample">例: http://192.168.20.10:8080</span><input id="defaultRelay" autocomplete="off" placeholder="http://192.168.20.10:8080"></label>
-        <label>標準ブロードキャスト <span class="sample">例: 255.255.255.255:9 / 192.168.10.255:9</span><input id="defaultTarget" autocomplete="off" placeholder="255.255.255.255:9"></label>
-        <label>共有シークレット <span class="sample">例: 長いランダム文字列</span><input id="sharedSecret" autocomplete="off" placeholder="change-me-long-random-secret"></label>
-        <label><input id="allowInsecure" type="checkbox">HMAC認証を無効化</label>
-        <label><input id="notificationsEnabled" type="checkbox">OS通知を有効化</label>
-        <label><input id="lightweight" type="checkbox">軽量モード</label>
+        <label>このPCの名前 <span class="sample">例: desktop</span><span class="desc">他のPCから見たときの識別名です。許可設定でも使います。</span><input id="nodeName" autocomplete="off" placeholder="desktop"></label>
+        <label>他のAgentから受け付けるアドレス <span class="sample">例: 127.0.0.1:8080 / 192.168.20.10:8080</span><span class="desc">別セグメントのAgentから起動依頼を受けるPCだけ、LANのIPアドレスにします。</span><input id="listenHttp" autocomplete="off" placeholder="127.0.0.1:8080"></label>
+        <label>マジックパケット検知ポート <span class="sample">例: :9</span><span class="desc">他のWake on LANツールが送った信号を、このアプリが検知するためのUDPポートです。</span><input id="listenMagic" autocomplete="off" placeholder=":9"></label>
+        <label>検知を許可する送信元 <span class="sample">例: 192.168.10.0/24</span><span class="desc">空なら制限しません。特定のPCやLANからの信号だけ受けたい時に指定します。</span><input id="allowedMagicSources" autocomplete="off" placeholder="192.168.10.0/24"></label>
+        <label>標準の送信先Agent <span class="sample">例: http://192.168.20.10:8080</span><span class="desc">別セグメントへ起動依頼する時の標準の宛先です。各ホストで個別指定もできます。</span><input id="defaultRelay" autocomplete="off" placeholder="http://192.168.20.10:8080"></label>
+        <label>標準のブロードキャスト宛先 <span class="sample">例: 255.255.255.255:9 / 192.168.10.255:9</span><span class="desc">同じLAN内のPCを起こす時に送る宛先です。通常は初期値で動きます。</span><input id="defaultTarget" autocomplete="off" placeholder="255.255.255.255:9"></label>
+        <label>共有シークレット <span class="sample">例: 長いランダム文字列</span><span class="desc">Agent同士が本物か確認するための合言葉です。通信するAgentで同じ値にします。</span><input id="sharedSecret" autocomplete="off" placeholder="change-me-long-random-secret"></label>
+        <label><input id="allowInsecure" type="checkbox">HMAC認証を無効化 <span class="desc">通常はオフにしてください。オンにするとAgent間の認証確認を省略します。</span></label>
+        <label><input id="notificationsEnabled" type="checkbox">OS通知を有効化 <span class="desc">起動依頼や起動確認の結果をOSの通知に表示します。</span></label>
+        <label><input id="lightweight" type="checkbox">軽量モード <span class="desc">GUIと通知を使わず、Raspberry Piなどで常駐させる用途の設定です。</span></label>
       </div>
       <button id="saveSettings" type="button">全体設定を保存</button>
     </section>
     <section class="setup">
       <h2 id="hostFormTitle">ホスト追加</h2>
+      <p class="desc">起こしたいPCやサーバーを登録します。同じLAN内なら名前とMACアドレスだけでも始められます。別セグメントの場合は送信先Agent URLも指定します。</p>
       <div class="form">
-        <label>名前 <span class="sample">例: nas</span><input id="hostName" autocomplete="off" placeholder="nas"></label>
-        <label>MACアドレス <span class="sample">例: 00:11:22:33:44:55</span><input id="hostMac" autocomplete="off" placeholder="00:11:22:33:44:55"></label>
-        <label>IPアドレス <span class="sample">例: 192.168.10.20</span><input id="hostIp" autocomplete="off" placeholder="192.168.10.20"></label>
-        <label>ブロードキャスト <span class="sample">例: 192.168.10.255:9</span><input id="hostBroadcast" autocomplete="off" placeholder="192.168.10.255:9"></label>
-        <label>送信先Agent URL <span class="sample">例: http://192.168.20.10:8080</span><input id="hostRelay" autocomplete="off" placeholder="http://192.168.20.10:8080"></label>
-        <label>許可する送信元Agent名 <span class="sample">例: desktop, laptop</span><input id="hostAllowedBy" autocomplete="off" placeholder="desktop, laptop"></label>
-        <label><input id="checkEnabled" type="checkbox">起動確認</label>
-        <label>確認方法 <span class="sample">例: tcp / icmp</span><input id="checkMethod" autocomplete="off" placeholder="tcp"></label>
-        <label>確認TCPポート <span class="sample">例: 22 / 3389</span><input id="checkPort" autocomplete="off" inputmode="numeric" placeholder="22"></label>
-        <label>確認タイムアウト <span class="sample">例: 2m</span><input id="checkTimeout" autocomplete="off" placeholder="2m"></label>
-        <label>確認間隔 <span class="sample">例: 3s</span><input id="checkInterval" autocomplete="off" placeholder="3s"></label>
+        <label>表示名 <span class="sample">例: nas</span><span class="desc">Wakeボタンや一覧に出る名前です。わかりやすい名前を付けます。</span><input id="hostName" autocomplete="off" placeholder="nas"></label>
+        <label>MACアドレス <span class="sample">例: 00:11:22:33:44:55</span><span class="desc">起こしたいPCの有線LANまたは無線LANアダプターのMACアドレスです。</span><input id="hostMac" autocomplete="off" placeholder="00:11:22:33:44:55"></label>
+        <label>IPアドレス <span class="sample">例: 192.168.10.20</span><span class="desc">起動できたか確認する時に使います。起動確認を使わないなら空でも構いません。</span><input id="hostIp" autocomplete="off" placeholder="192.168.10.20"></label>
+        <label>ブロードキャスト宛先 <span class="sample">例: 192.168.10.255:9</span><span class="desc">同じLAN内へWake信号を送る宛先です。空なら全体設定の標準値を使います。</span><input id="hostBroadcast" autocomplete="off" placeholder="192.168.10.255:9"></label>
+        <label>送信先Agent URL <span class="sample">例: http://192.168.20.10:8080</span><span class="desc">別のLANにいるPCを起こす時、そのLAN側で動いているAgentのURLを入れます。</span><input id="hostRelay" autocomplete="off" placeholder="http://192.168.20.10:8080"></label>
+        <label>許可する送信元Agent名 <span class="sample">例: desktop, laptop</span><span class="desc">このホストを起こしてよいAgent名です。空なら認証済みAgentを許可します。</span><input id="hostAllowedBy" autocomplete="off" placeholder="desktop, laptop"></label>
+        <label><input id="checkEnabled" type="checkbox">起動確認 <span class="desc">Wake信号を送った後、PCが本当に起動したか確認します。</span></label>
+        <label>確認方法 <span class="sample">例: tcp / icmp</span><span class="desc">tcpは指定ポートに接続できるか、icmpはping応答があるかで確認します。</span><input id="checkMethod" autocomplete="off" placeholder="tcp"></label>
+        <label>確認TCPポート <span class="sample">例: 22 / 3389</span><span class="desc">確認方法がtcpの時に使います。SSHなら22、リモートデスクトップなら3389です。</span><input id="checkPort" autocomplete="off" inputmode="numeric" placeholder="22"></label>
+        <label>確認を待つ時間 <span class="sample">例: 2m</span><span class="desc">この時間を過ぎても応答がなければ、起動未確認として扱います。</span><input id="checkTimeout" autocomplete="off" placeholder="2m"></label>
+        <label>確認の間隔 <span class="sample">例: 3s</span><span class="desc">起動確認を何秒ごとに試すかです。通常は初期値で十分です。</span><input id="checkInterval" autocomplete="off" placeholder="3s"></label>
       </div>
       <div class="actions">
         <button id="addHost" type="button">追加</button>

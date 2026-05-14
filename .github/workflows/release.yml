@@ -83,8 +83,7 @@ jobs:
             --msi `
             --msiVersion "${{ env.msiVersion }}" `
             --instLocation PerMachine `
-            --instLicense packaging\LICENSE.md `
-            --instConclusion packaging\velopack-conclusion.md
+            --instLicense packaging\LICENSE.md
 
       - name: Collect artifacts
         shell: pwsh
