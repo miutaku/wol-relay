@@ -122,9 +122,10 @@ jobs:
             --packVersion 0.0.1-ci `
             --packDir dist\velopack-input `
             --mainExe wol-relay.exe `
-            --packTitle wol-relay `
+            --packTitle "wol-relay Wake on LAN" `
             --packAuthors miutaku `
             --outputDir dist\velopack-ci `
+            --aumid miutaku.wol-relay.wake `
             --shortcuts Desktop,StartMenuRoot `
             --skipVeloAppCheck `
             --msi `

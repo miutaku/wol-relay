@@ -75,9 +75,10 @@ jobs:
             --packVersion "${{ env.packageVersion }}" `
             --packDir dist\velopack-input `
             --mainExe wol-relay.exe `
-            --packTitle wol-relay `
+            --packTitle "wol-relay Wake on LAN" `
             --packAuthors miutaku `
             --outputDir dist\windows-velopack `
+            --aumid miutaku.wol-relay.wake `
             --shortcuts Desktop,StartMenuRoot `
             --skipVeloAppCheck `
             --msi `

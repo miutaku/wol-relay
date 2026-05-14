@@ -149,7 +149,7 @@ Windows:
 
 リリースに添付される Velopack 生成の `.msi` をダブルクリックし、Windows Installer のセットアップウィザードに従ってインストールします。`wol-relay-Setup.exe` も配布されますが、これは Velopack の一クリックインストーラーです。
 
-MSI は `Program Files` 配下への per-machine インストールを前提にしています。インストール後は Windows のスタートメニュー、デスクトップショートカット、アプリケーション一覧から `wol-relay` を起動できます。
+MSI は `Program Files` 配下への per-machine インストールを前提にしています。インストール後は Windows のスタートメニュー、デスクトップショートカット、アプリケーション一覧から `wol-relay Wake on LAN` を起動できます。Windows 検索では `wol-relay` または `wake` で探せるようにしています。
 
 アンインストールは Windows の「設定」または「アプリと機能」から実行します。
 
@@ -179,7 +179,7 @@ REMOVE_CONFIG=1 sh ./packaging/uninstall-unix.sh
 
 別セグメントのホストを起こす場合は、ホスト追加時に `送信先Agent URL` へ対象セグメント側 Agent の URL を入力します。例: `http://<agent-host>:8080`。未入力の場合、リレー先Agentは設定されません。必要に応じて `許可する送信元Agent名` に、このホストのWake要求を許可するAgent名をカンマ区切りで入力します。
 
-Windows では、インストール後にスタートメニューまたはデスクトップショートカットの `wol-relay` を開きます。macOS / Linux では、アプリケーション一覧の `wol-relay` を開きます。
+Windows では、インストール後にスタートメニューまたはデスクトップショートカットの `wol-relay Wake on LAN` を開きます。macOS / Linux では、アプリケーション一覧の `wol-relay` を開きます。
 
 Linux / macOS で `listen_magic` に `:9` のような privileged port を使う場合は、管理者権限が必要になることがあります。権限なしで動かしたい場合は GUI で高いポート番号に変更できるようにする予定です。
 
