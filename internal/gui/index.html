@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>wol-relay</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: Canvas;
+      color: CanvasText;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+    }
+    main {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 32px 20px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 680;
+    }
+    #node {
+      opacity: .72;
+      font-size: 14px;
+    }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .setup {
+      border: 1px solid color-mix(in srgb, CanvasText 16%, Canvas);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+      display: grid;
+      gap: 12px;
+    }
+    .setup h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+    label {
+      display: grid;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .sample {
+      opacity: .68;
+      font-size: 12px;
+    }
+    input[type="checkbox"] {
+      flex: 0 0 auto;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+    }
+    input {
+      flex: 1;
+      min-width: 0;
+      padding: 11px 12px;
+      border: 1px solid color-mix(in srgb, CanvasText 22%, Canvas);
+      border-radius: 8px;
+      font: inherit;
+      background: Canvas;
+      color: CanvasText;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 11px 14px;
+      font: inherit;
+      font-weight: 650;
+      background: #116a5c;
+      color: white;
+      cursor: pointer;
+    }
+    button:disabled {
+      cursor: wait;
+      opacity: .65;
+    }
+    .hosts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .host {
+      border: 1px solid color-mix(in srgb, CanvasText 16%, Canvas);
+      border-radius: 8px;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .name {
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    .meta {
+      opacity: .72;
+      font-size: 13px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    #status {
+      min-height: 22px;
+      margin-top: 18px;
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>wol-relay</h1>
+      <div id="node"></div>
+    </header>
+    <div class="toolbar">
+      <input id="target" autocomplete="off" placeholder="ホスト名またはMACアドレス">
+      <button id="wake">Wake</button>
+    </div>
+    <section class="setup">
+      <h2>全体設定</h2>
+      <div class="form">
+        <label>Agent名 <span class="sample">例: desktop</span><input id="nodeName" autocomplete="off" placeholder="desktop"></label>
+        <label>REST待ち受け <span class="sample">例: 127.0.0.1:8080 / 192.168.20.10:8080</span><input id="listenHttp" autocomplete="off" placeholder="127.0.0.1:8080"></label>
+        <label>Magic待ち受け <span class="sample">例: :9, 0.0.0.0:9009</span><input id="listenMagic" autocomplete="off" placeholder=":9"></label>
+        <label>Magic送信元許可 <span class="sample">例: 192.168.10.0/24, 192.168.10.50</span><input id="allowedMagicSources" autocomplete="off" placeholder="192.168.10.0/24"></label>
+        <label>標準送信先Agent URL <span class="sample">例: http://192.168.20.10:8080</span><input id="defaultRelay" autocomplete="off" placeholder="http://192.168.20.10:8080"></label>
+        <label>標準ブロードキャスト <span class="sample">例: 255.255.255.255:9 / 192.168.10.255:9</span><input id="defaultTarget" autocomplete="off" placeholder="255.255.255.255:9"></label>
+        <label>共有シークレット <span class="sample">例: 長いランダム文字列</span><input id="sharedSecret" autocomplete="off" placeholder="change-me-long-random-secret"></label>
+        <label><input id="allowInsecure" type="checkbox">HMAC認証を無効化</label>
+        <label><input id="notificationsEnabled" type="checkbox">OS通知を有効化</label>
+        <label><input id="lightweight" type="checkbox">軽量モード</label>
+      </div>
+      <button id="saveSettings" type="button">全体設定を保存</button>
+    </section>
+    <section class="setup">
+      <h2 id="hostFormTitle">ホスト追加</h2>
+      <div class="form">
+        <label>名前 <span class="sample">例: nas</span><input id="hostName" autocomplete="off" placeholder="nas"></label>
+        <label>MACアドレス <span class="sample">例: 00:11:22:33:44:55</span><input id="hostMac" autocomplete="off" placeholder="00:11:22:33:44:55"></label>
+        <label>IPアドレス <span class="sample">例: 192.168.10.20</span><input id="hostIp" autocomplete="off" placeholder="192.168.10.20"></label>
+        <label>ブロードキャスト <span class="sample">例: 192.168.10.255:9</span><input id="hostBroadcast" autocomplete="off" placeholder="192.168.10.255:9"></label>
+        <label>送信先Agent URL <span class="sample">例: http://192.168.20.10:8080</span><input id="hostRelay" autocomplete="off" placeholder="http://192.168.20.10:8080"></label>
+        <label>許可する送信元Agent名 <span class="sample">例: desktop, laptop</span><input id="hostAllowedBy" autocomplete="off" placeholder="desktop, laptop"></label>
+        <label><input id="checkEnabled" type="checkbox">起動確認</label>
+        <label>確認方法 <span class="sample">例: tcp / icmp</span><input id="checkMethod" autocomplete="off" placeholder="tcp"></label>
+        <label>確認TCPポート <span class="sample">例: 22 / 3389</span><input id="checkPort" autocomplete="off" inputmode="numeric" placeholder="22"></label>
+        <label>確認タイムアウト <span class="sample">例: 2m</span><input id="checkTimeout" autocomplete="off" placeholder="2m"></label>
+        <label>確認間隔 <span class="sample">例: 3s</span><input id="checkInterval" autocomplete="off" placeholder="3s"></label>
+      </div>
+      <div class="actions">
+        <button id="addHost" type="button">追加</button>
+        <button id="cancelHostEdit" type="button" hidden>編集をキャンセル</button>
+      </div>
+    </section>
+    <section id="hosts" class="hosts"></section>
+    <div id="status"></div>
+  </main>
+  <script>
+    const target = document.querySelector("#target");
+    const wake = document.querySelector("#wake");
+    const hosts = document.querySelector("#hosts");
+    const status = document.querySelector("#status");
+    const node = document.querySelector("#node");
+    const saveSettings = document.querySelector("#saveSettings");
+    const addHost = document.querySelector("#addHost");
+    const cancelHostEdit = document.querySelector("#cancelHostEdit");
+    const hostFormTitle = document.querySelector("#hostFormTitle");
+    const nodeName = document.querySelector("#nodeName");
+    const listenHttp = document.querySelector("#listenHttp");
+    const listenMagic = document.querySelector("#listenMagic");
+    const allowedMagicSources = document.querySelector("#allowedMagicSources");
+    const defaultRelay = document.querySelector("#defaultRelay");
+    const defaultTarget = document.querySelector("#defaultTarget");
+    const sharedSecret = document.querySelector("#sharedSecret");
+    const allowInsecure = document.querySelector("#allowInsecure");
+    const notificationsEnabled = document.querySelector("#notificationsEnabled");
+    const lightweight = document.querySelector("#lightweight");
+    const hostName = document.querySelector("#hostName");
+    const hostMac = document.querySelector("#hostMac");
+    const hostIp = document.querySelector("#hostIp");
+    const hostBroadcast = document.querySelector("#hostBroadcast");
+    const hostRelay = document.querySelector("#hostRelay");
+    const hostAllowedBy = document.querySelector("#hostAllowedBy");
+    const checkEnabled = document.querySelector("#checkEnabled");
+    const checkMethod = document.querySelector("#checkMethod");
+    const checkPort = document.querySelector("#checkPort");
+    const checkTimeout = document.querySelector("#checkTimeout");
+    const checkInterval = document.querySelector("#checkInterval");
+    let currentConfig = null;
+    let editingHost = "";
+
+    function splitList(value) {
+      return value.split(",").map(v => v.trim()).filter(Boolean);
+    }
+
+    function normalizeKey(value) {
+      return String(value || "").toLowerCase().replaceAll(":", "").replaceAll("-", "");
+    }
+
+    function hostKey(host) {
+      return host.name || host.mac || "";
+    }
+
+    function clearHostForm() {
+      hostName.value = "";
+      hostMac.value = "";
+      hostIp.value = "";
+      hostBroadcast.value = "";
+      hostRelay.value = "";
+      hostAllowedBy.value = "";
+      checkEnabled.checked = false;
+      checkMethod.value = "";
+      checkPort.value = "";
+      checkTimeout.value = "";
+      checkInterval.value = "";
+      editingHost = "";
+      hostFormTitle.textContent = "ホスト追加";
+      addHost.textContent = "追加";
+      cancelHostEdit.hidden = true;
+    }
+
+    function loadHostForm(host) {
+      editingHost = hostKey(host);
+      hostName.value = host.name || "";
+      hostMac.value = host.mac || "";
+      hostIp.value = host.ip || "";
+      hostBroadcast.value = host.broadcast || "";
+      hostRelay.value = host.relay || "";
+      hostAllowedBy.value = (host.allowed_by || []).join(", ");
+      checkEnabled.checked = !!host.check?.enabled;
+      checkMethod.value = host.check?.method || "tcp";
+      checkPort.value = host.check?.port || 22;
+      checkTimeout.value = host.check?.timeout || "2m";
+      checkInterval.value = host.check?.interval || "3s";
+      hostFormTitle.textContent = "ホスト編集";
+      addHost.textContent = "変更を保存";
+      cancelHostEdit.hidden = false;
+      status.textContent = "ホスト設定を編集できます。";
+    }
+
+    async function load() {
+      const res = await fetch("/api/config");
+      const cfg = await res.json();
+      currentConfig = cfg;
+      node.textContent = cfg.node_name;
+      nodeName.value = cfg.node_name || "";
+      listenHttp.value = cfg.listen_http || "";
+      listenMagic.value = (cfg.listen_magic || []).join(", ");
+      allowedMagicSources.value = (cfg.allowed_magic_sources || []).join(", ");
+      defaultRelay.value = cfg.default_relay || "";
+      defaultTarget.value = cfg.default_target || "";
+      sharedSecret.value = cfg.auth?.shared_secret || "";
+      allowInsecure.checked = !!cfg.auth?.allow_insecure;
+      notificationsEnabled.checked = !!cfg.notifications?.enabled;
+      lightweight.checked = !!cfg.lightweight;
+      hosts.innerHTML = "";
+      if (cfg.hosts.length === 0) {
+        status.textContent = "起こしたいPCやサーバーを追加してください。";
+      }
+      for (const host of cfg.hosts) {
+        const el = document.createElement("article");
+        el.className = "host";
+        const label = host.name || host.mac;
+        el.innerHTML = `<div class="name"></div><div class="meta"></div><div class="actions"><button type="button" class="wake">Wake</button><button type="button" class="edit">編集</button><button type="button" class="delete">削除</button></div>`;
+        el.querySelector(".name").textContent = label;
+        const check = host.check && host.check.enabled ? `確認: ${host.check.method}/${host.check.port || "default"}` : "";
+        const broadcast = host.broadcast ? `送信先: ${host.broadcast}` : "";
+        const relay = host.relay ? `送信先Agent: ${host.relay}` : "";
+        const allowedBy = host.allowed_by && host.allowed_by.length ? `許可: ${host.allowed_by.join(", ")}` : "";
+        el.querySelector(".meta").textContent = [host.mac, host.ip, broadcast, relay, allowedBy, check].filter(Boolean).join(" / ");
+        el.querySelector(".wake").addEventListener("click", () => sendWake(label));
+        el.querySelector(".edit").addEventListener("click", () => loadHostForm(host));
+        el.querySelector(".delete").addEventListener("click", () => deleteHost(label));
+        hosts.appendChild(el);
+      }
+    }
+
+    async function saveHost() {
+      addHost.disabled = true;
+      status.textContent = "保存中...";
+      try {
+        const host = {
+          name: hostName.value,
+          mac: hostMac.value,
+          ip: hostIp.value,
+          broadcast: hostBroadcast.value,
+          relay: hostRelay.value,
+          allowed_by: splitList(hostAllowedBy.value),
+          check: {
+            enabled: checkEnabled.checked,
+            method: checkMethod.value || "tcp",
+            port: Number(checkPort.value || 22),
+            timeout: checkTimeout.value || "2m",
+            interval: checkInterval.value || "3s"
+          }
+        };
+        let res;
+        if (editingHost) {
+          const cfg = currentConfig || {};
+          const needle = normalizeKey(editingHost);
+          const hosts = cfg.hosts || [];
+          const index = hosts.findIndex(item => item.name === editingHost || normalizeKey(item.mac) === needle);
+          if (index < 0) throw new Error("編集対象が見つかりません。");
+          hosts[index] = host;
+          cfg.hosts = hosts;
+          res = await fetch("/api/config", {
+            method: "PUT",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(cfg)
+          });
+        } else {
+          res = await fetch("/api/hosts", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(host)
+          });
+        }
+        const text = await res.text();
+        if (!res.ok) throw new Error(text);
+        const wasEditing = !!editingHost;
+        clearHostForm();
+        status.textContent = wasEditing ? "変更を保存しました。" : "保存しました。";
+        await load();
+      } catch (err) {
+        status.textContent = err.message;
+      } finally {
+        addHost.disabled = false;
+      }
+    }
+
+    async function saveConfig() {
+      saveSettings.disabled = true;
+      status.textContent = "保存中...";
+      try {
+        const cfg = currentConfig || {};
+        cfg.node_name = nodeName.value;
+        cfg.listen_http = listenHttp.value;
+        cfg.listen_magic = splitList(listenMagic.value);
+        cfg.allowed_magic_sources = splitList(allowedMagicSources.value);
+        cfg.default_relay = defaultRelay.value;
+        cfg.default_target = defaultTarget.value;
+        cfg.lightweight = lightweight.checked;
+        cfg.auth = {
+          shared_secret: sharedSecret.value,
+          allow_insecure: allowInsecure.checked
+        };
+        cfg.notifications = {
+          enabled: notificationsEnabled.checked
+        };
+        cfg.hosts = cfg.hosts || [];
+        const res = await fetch("/api/config", {
+          method: "PUT",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(cfg)
+        });
+        const text = await res.text();
+        if (!res.ok) throw new Error(text);
+        currentConfig = JSON.parse(text);
+        status.textContent = "全体設定を保存しました。待ち受けアドレスの変更は次回起動から反映されます。";
+        await load();
+      } catch (err) {
+        status.textContent = err.message;
+      } finally {
+        saveSettings.disabled = false;
+      }
+    }
+
+    async function sendWake(value) {
+      wake.disabled = true;
+      status.textContent = "送信中...";
+      try {
+        const res = await fetch("/api/wake", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({target: value})
+        });
+        const text = await res.text();
+        if (!res.ok) throw new Error(text);
+        const data = JSON.parse(text);
+        status.textContent = data.message;
+      } catch (err) {
+        status.textContent = err.message;
+      } finally {
+        wake.disabled = false;
+      }
+    }
+
+    async function deleteHost(value) {
+      status.textContent = "削除中...";
+      try {
+        const res = await fetch("/api/hosts", {
+          method: "DELETE",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({target: value})
+        });
+        const text = await res.text();
+        if (!res.ok) throw new Error(text);
+        status.textContent = "削除しました。";
+        if (editingHost === value) clearHostForm();
+        await load();
+      } catch (err) {
+        status.textContent = err.message;
+      }
+    }
+
+    wake.addEventListener("click", () => sendWake(target.value));
+    saveSettings.addEventListener("click", saveConfig);
+    addHost.addEventListener("click", saveHost);
+    cancelHostEdit.addEventListener("click", () => {
+      clearHostForm();
+      status.textContent = "編集をキャンセルしました。";
+    });
+    target.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") sendWake(target.value);
+    });
+    load().catch(err => status.textContent = err.message);
+  </script>
+</body>
+</html>
