@@ -130,7 +130,5 @@ jobs:
             --msi `
             --msiVersion 0.0.1 `
             --instLocation PerMachine `
-            --instWelcome packaging\velopack-welcome.md `
             --instLicense packaging\LICENSE.md `
-            --instReadme README.md `
             --instConclusion packaging\velopack-conclusion.md

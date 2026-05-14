@@ -83,9 +83,7 @@ jobs:
             --msi `
             --msiVersion "${{ env.msiVersion }}" `
             --instLocation PerMachine `
-            --instWelcome packaging\velopack-welcome.md `
             --instLicense packaging\LICENSE.md `
-            --instReadme README.md `
             --instConclusion packaging\velopack-conclusion.md
 
       - name: Collect artifacts
