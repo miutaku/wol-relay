@@ -69,6 +69,7 @@ jobs:
         shell: pwsh
         run: |
           $env:Path += ";$env:USERPROFILE\.dotnet\tools"
+          Copy-Item LICENSE packaging\LICENSE.md
           vpk pack `
             --packId wol-relay `
             --packVersion "${{ env.packageVersion }}" `
@@ -83,7 +84,7 @@ jobs:
             --msiVersion "${{ env.msiVersion }}" `
             --instLocation PerMachine `
             --instWelcome packaging\velopack-welcome.md `
-            --instLicense LICENSE `
+            --instLicense packaging\LICENSE.md `
             --instReadme README.md `
             --instConclusion packaging\velopack-conclusion.md
 

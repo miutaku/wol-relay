@@ -338,6 +338,8 @@ sh ./packaging/build-windows.sh
 
 MSI 生成には `--msi` / `--instLocation` に対応した Velopack CLI が必要です。CI/CD では `vpk 0.0.1589-ga2c5a97` を明示的に使っています。stable の古い `vpk` ではこれらのオプションが未対応のため、同じ手順をローカルで試す場合もバージョンを合わせてください。
 
+Velopack の MSI ライセンス入力は `.txt` / `.md` / `.rtf` 拡張子が必要なため、CI/CD ではリポジトリルートの `LICENSE` を `packaging/LICENSE.md` として一時コピーしてから `--instLicense` に渡します。
+
 Linux でネイティブGUIをビルドする場合は、OpenGL / X11 の開発ヘッダが必要です。CI やヘッドレス環境で単体テストだけを回す場合は、`nativegui` タグなしのビルドでブラウザ互換GUIにフォールバックできます。
 
 ## CI/CD

@@ -115,6 +115,7 @@ jobs:
         shell: pwsh
         run: |
           $env:Path += ";$env:USERPROFILE\.dotnet\tools"
+          Copy-Item LICENSE packaging\LICENSE.md
           vpk pack -H
           vpk pack `
             --packId wol-relay `
@@ -130,6 +131,6 @@ jobs:
             --msiVersion 0.0.1 `
             --instLocation PerMachine `
             --instWelcome packaging\velopack-welcome.md `
-            --instLicense LICENSE `
+            --instLicense packaging\LICENSE.md `
             --instReadme README.md `
             --instConclusion packaging\velopack-conclusion.md
