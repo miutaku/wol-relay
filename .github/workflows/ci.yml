@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  VPK_VERSION: 0.0.1589-ga2c5a97
+
 jobs:
   format:
     name: Format
@@ -99,7 +102,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Install Velopack CLI
-        run: dotnet tool install --global vpk
+        run: dotnet tool install --global vpk --version $env:VPK_VERSION
 
       - name: Build Windows app
         shell: pwsh
@@ -112,9 +115,10 @@ jobs:
         shell: pwsh
         run: |
           $env:Path += ";$env:USERPROFILE\.dotnet\tools"
+          vpk pack -H
           vpk pack `
             --packId wol-relay `
-            --packVersion 0.0.0-ci `
+            --packVersion 0.0.1-ci `
             --packDir dist\velopack-input `
             --mainExe wol-relay.exe `
             --packTitle wol-relay `
@@ -123,6 +127,7 @@ jobs:
             --shortcuts Desktop,StartMenuRoot `
             --skipVeloAppCheck `
             --msi `
+            --msiVersion 0.0.1 `
             --instLocation PerMachine `
             --instWelcome packaging\velopack-welcome.md `
             --instLicense LICENSE `

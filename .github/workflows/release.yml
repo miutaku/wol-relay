@@ -17,6 +17,9 @@ on:
 permissions:
   contents: write
 
+env:
+  VPK_VERSION: 0.0.1589-ga2c5a97
+
 jobs:
   build-windows:
     name: Build Windows Velopack
@@ -40,7 +43,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Install Velopack CLI
-        run: dotnet tool install --global vpk
+        run: dotnet tool install --global vpk --version $env:VPK_VERSION
 
       - name: Resolve version
         shell: pwsh
@@ -50,8 +53,10 @@ jobs:
             $version = "${{ inputs.version }}"
           }
           $packageVersion = $version.TrimStart("v")
+          $msiVersion = ($packageVersion -split "[-+]")[0]
           "version=$version" >> $env:GITHUB_ENV
           "packageVersion=$packageVersion" >> $env:GITHUB_ENV
+          "msiVersion=$msiVersion" >> $env:GITHUB_ENV
 
       - name: Build app
         shell: pwsh
@@ -75,6 +80,7 @@ jobs:
             --shortcuts Desktop,StartMenuRoot `
             --skipVeloAppCheck `
             --msi `
+            --msiVersion "${{ env.msiVersion }}" `
             --instLocation PerMachine `
             --instWelcome packaging\velopack-welcome.md `
             --instLicense LICENSE `
