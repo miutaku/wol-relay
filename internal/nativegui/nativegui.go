@@ -290,13 +290,19 @@ func Run(ctx context.Context, opts Options) error {
 	settingsForm := container.NewVBox(
 		widget.NewLabelWithStyle("全体設定", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		helpText("このPCで動く wol-relay Agent 全体の設定です。家庭内LANだけで使う場合は、多くの項目は初期値のままで使えます。"),
-		container.NewGridWithColumns(2,
+		sectionCard("このPCの基本情報",
 			sampled("このPCの名前", "desktop", "他のPCから見たときの識別名です。許可設定でも使います。", nodeName),
 			sampled("他のAgentから受け付けるアドレス", "127.0.0.1:8080 / 192.168.20.10:8080", "別セグメントのAgentから起動依頼を受けるPCだけ、LANのIPアドレスにします。", listenHTTP),
+		),
+		sectionCard("マジックパケットの検知",
 			sampled("マジックパケット検知ポート", ":9", "他のWake on LANツールが送った信号を、このアプリが検知するためのUDPポートです。", listenMagic),
 			sampled("検知を許可する送信元", "192.168.10.0/24", "空なら制限しません。特定のPCやLANからの信号だけ受けたい時に指定します。", allowedMagicSources),
+		),
+		sectionCard("標準の送信先",
 			sampled("標準の送信先Agent", "http://192.168.20.10:8080", "別セグメントへ起動依頼する時の標準の宛先です。各ホストで個別指定もできます。", defaultRelay),
 			sampled("標準のブロードキャスト宛先", "255.255.255.255:9 / 192.168.10.255:9", "同じLAN内のPCを起こす時に送る宛先です。通常は初期値で動きます。", defaultTarget),
+		),
+		sectionCard("安全設定と表示設定",
 			sampled("共有シークレット", "長いランダム文字列", "Agent同士が本物か確認するための設定です。通信するAgentで同じ値にします。", sharedSecret),
 			container.NewVBox(
 				helpText("安全設定と表示設定"),
@@ -314,13 +320,17 @@ func Run(ctx context.Context, opts Options) error {
 	hostForm := container.NewVBox(
 		hostFormTitle,
 		helpText("起こしたいPCやサーバーを登録します。同じLAN内なら名前とMACアドレスだけでも始められます。別セグメントの場合は送信先Agent URLも指定します。"),
-		container.NewGridWithColumns(2,
+		sectionCard("起こしたいPCの情報",
 			sampled("表示名", "nas", "Wakeボタンや一覧に出る名前です。わかりやすい名前を付けます。", hostName),
 			sampled("MACアドレス", "00:11:22:33:44:55", "起こしたいPCの有線LANまたは無線LANアダプターのMACアドレスです。", hostMAC),
 			sampled("IPアドレス", "192.168.10.20", "起動できたか確認する時に使います。起動確認を使わないなら空でも構いません。", hostIP),
+		),
+		sectionCard("Wake信号の送り先",
 			sampled("ブロードキャスト宛先", "192.168.10.255:9", "同じLAN内へWake信号を送る宛先です。空なら全体設定の標準値を使います。", hostBroadcast),
 			sampled("送信先Agent URL", "http://192.168.20.10:8080", "別のLANにいるPCを起こす時、そのLAN側で動いているAgentのURLを入れます。", hostRelay),
 			sampled("許可する送信元Agent名", "desktop, laptop", "このホストを起こしてよいAgent名です。空なら認証済みAgentを許可します。", hostAllowedBy),
+		),
+		sectionCard("起動確認",
 			container.NewVBox(checkEnabled, helpText("Wake信号を送った後、PCが本当に起動したか確認します。")),
 			sampled("確認方法", "tcp / icmp", "tcpは指定ポートに接続できるか、icmpはping応答があるかで確認します。", checkMethod),
 			sampled("確認TCPポート", "22 / 3389", "確認方法がtcpの時に使います。SSHなら22、リモートデスクトップなら3389です。", checkPort),
@@ -381,6 +391,10 @@ func checkLabel(check config.CheckConfig) string {
 
 func sampled(label string, sample string, description string, object fyne.CanvasObject) fyne.CanvasObject {
 	return container.NewVBox(widget.NewLabel(label+"  例: "+sample), helpText(description), object)
+}
+
+func sectionCard(title string, objects ...fyne.CanvasObject) fyne.CanvasObject {
+	return widget.NewCard(title, "", container.NewGridWithColumns(2, objects...))
 }
 
 func helpText(value string) *widget.Label {

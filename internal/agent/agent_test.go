@@ -70,7 +70,7 @@ func TestHandleDetectedMagicDoesNotResendLocalPacket(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.handleDetectedMagic(context.Background(), &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 9}, hw)
-	if len(n.titles) != 1 || n.titles[0] != "Wake on LAN detected" {
+	if len(n.titles) != 1 || n.titles[0] != "Wake on LANを検知しました" {
 		t.Fatalf("unexpected notifications: %v", n.titles)
 	}
 }
@@ -142,8 +142,8 @@ func TestListenMagicDetectsUDPMagicPacket(t *testing.T) {
 
 	select {
 	case title := <-notifier.ch:
-		if title != "Wake on LAN detected" {
-			t.Fatalf("got notification %q, want Wake on LAN detected", title)
+		if title != "Wake on LANを検知しました" {
+			t.Fatalf("got notification %q, want Wake on LANを検知しました", title)
 		}
 	case err := <-errCh:
 		t.Fatalf("listener exited early: %v", err)

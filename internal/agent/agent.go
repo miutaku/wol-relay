@@ -415,7 +415,7 @@ func (a *Agent) handleDetectedMagic(ctx context.Context, remote net.Addr, hw net
 	}
 	if a.shouldWakeLocally(host) {
 		log.Printf("detected local magic packet from %s for %s; no relay needed", remote, hw)
-		a.notify("Wake on LAN detected", fmt.Sprintf("magic packet for %s was already on this segment", displayHost(host)))
+		a.notify("Wake on LANを検知しました", fmt.Sprintf("%s 宛てのマジックパケットは、すでにこのLANに届いています。リレーは不要です。", displayHost(host)))
 		return
 	}
 	res, err := a.wakeHost(ctx, host, SourceMagic)
