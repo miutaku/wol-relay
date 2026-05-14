@@ -19,14 +19,14 @@ permissions:
 
 jobs:
   build-windows:
-    name: Build Windows
-    runs-on: ubuntu-latest
+    name: Build Windows Velopack
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install cross build dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 gcc libgl1-mesa-dev xorg-dev zip
+      - name: Install MinGW
+        run: choco install mingw -y
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -34,25 +34,67 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Build
-        run: sh ./packaging/build-windows.sh
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
 
-      - name: Package
-        shell: bash
+      - name: Install Velopack CLI
+        run: dotnet tool install --global vpk
+
+      - name: Resolve version
+        shell: pwsh
         run: |
-          version="${{ github.ref_name }}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            version="${{ inputs.version }}"
+          $version = "${{ github.ref_name }}"
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $version = "${{ inputs.version }}"
+          }
+          $packageVersion = $version.TrimStart("v")
+          "version=$version" >> $env:GITHUB_ENV
+          "packageVersion=$packageVersion" >> $env:GITHUB_ENV
+
+      - name: Build app
+        shell: pwsh
+        run: |
+          $env:Path += ";C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin"
+          New-Item -ItemType Directory -Force -Path dist\velopack-input | Out-Null
+          go build -tags nativegui -ldflags="-H=windowsgui" -o dist\velopack-input\wol-relay.exe .\cmd\wol-relay
+
+      - name: Build Velopack release
+        shell: pwsh
+        run: |
+          $env:Path += ";$env:USERPROFILE\.dotnet\tools"
+          vpk pack `
+            --packId wol-relay `
+            --packVersion "${{ env.packageVersion }}" `
+            --packDir dist\velopack-input `
+            --mainExe wol-relay.exe `
+            --packTitle wol-relay `
+            --packAuthors miutaku `
+            --outputDir dist\windows-velopack `
+            --shortcuts Desktop,StartMenuRoot `
+            --skipVeloAppCheck `
+            --msi `
+            --instLocation PerMachine `
+            --instWelcome packaging\velopack-welcome.md `
+            --instLicense LICENSE `
+            --instReadme README.md `
+            --instConclusion packaging\velopack-conclusion.md
+
+      - name: Collect artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist\windows-release | Out-Null
+          Copy-Item dist\windows-velopack\* dist\windows-release\
+          if (Test-Path dist\velopack-input\wol-relay.exe) {
+            Copy-Item dist\velopack-input\wol-relay.exe "dist\windows-release\wol-relay_${{ env.version }}_windows_amd64_portable.exe"
           fi
-          archive="wol-relay_${version}_windows_amd64.zip"
-          (cd dist/windows-amd64 && zip -r "../${archive}" .)
-          echo "archive=dist/${archive}" >> "$GITHUB_ENV"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-amd64
-          path: ${{ env.archive }}
+          name: windows-velopack
+          path: dist/windows-release/*
 
   build-linux:
     name: Build Linux

@@ -78,14 +78,14 @@ jobs:
         run: go build -tags nativegui -o /tmp/wol-relay ./cmd/wol-relay
 
   windows-package:
-    name: Windows Package Compile
-    runs-on: ubuntu-latest
+    name: Windows Velopack Compile
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install cross build dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 gcc libgl1-mesa-dev xorg-dev
+      - name: Install MinGW
+        run: choco install mingw -y
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -93,5 +93,38 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Build Windows binaries
-        run: sh ./packaging/build-windows.sh
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install Velopack CLI
+        run: dotnet tool install --global vpk
+
+      - name: Build Windows app
+        shell: pwsh
+        run: |
+          $env:Path += ";C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin;$env:USERPROFILE\.dotnet\tools"
+          New-Item -ItemType Directory -Force -Path dist\velopack-input | Out-Null
+          go build -tags nativegui -ldflags="-H=windowsgui" -o dist\velopack-input\wol-relay.exe .\cmd\wol-relay
+
+      - name: Validate Velopack package
+        shell: pwsh
+        run: |
+          $env:Path += ";$env:USERPROFILE\.dotnet\tools"
+          vpk pack `
+            --packId wol-relay `
+            --packVersion 0.0.0-ci `
+            --packDir dist\velopack-input `
+            --mainExe wol-relay.exe `
+            --packTitle wol-relay `
+            --packAuthors miutaku `
+            --outputDir dist\velopack-ci `
+            --shortcuts Desktop,StartMenuRoot `
+            --skipVeloAppCheck `
+            --msi `
+            --instLocation PerMachine `
+            --instWelcome packaging\velopack-welcome.md `
+            --instLicense LICENSE `
+            --instReadme README.md `
+            --instConclusion packaging\velopack-conclusion.md
