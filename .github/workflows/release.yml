@@ -110,11 +110,11 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist\windows-release | Out-Null
-          Get-ChildItem dist\windows-velopack | ForEach-Object {
-            Copy-Item $_.FullName "dist\windows-release\wol-relay_${{ env.version }}_windows_${{ matrix.arch }}_$($_.Name)"
-          }
-          if (Test-Path dist\velopack-input\wol-relay.exe) {
-            Copy-Item dist\velopack-input\wol-relay.exe "dist\windows-release\wol-relay_${{ env.version }}_windows_${{ matrix.arch }}_portable.exe"
+          $patterns = @("*-Setup.exe", "*.msi", "*-Portable.zip")
+          foreach ($pattern in $patterns) {
+            Get-ChildItem dist\windows-velopack -Filter $pattern | ForEach-Object {
+              Copy-Item $_.FullName "dist\windows-release\wol-relay_${{ env.version }}_windows_${{ matrix.arch }}_$($_.Name)"
+            }
           }
 
       - name: Upload artifact
@@ -131,6 +131,7 @@ jobs:
       matrix:
         include:
           - arch: amd64
+            package_suffix: amd64
             goarch: amd64
             goarm: ""
             runner: ubuntu-latest
@@ -139,6 +140,7 @@ jobs:
             deb_arch: amd64
             rpm_arch: x86_64
           - arch: arm64
+            package_suffix: arm64
             goarch: arm64
             goarm: ""
             runner: ubuntu-24.04-arm

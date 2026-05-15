@@ -410,8 +410,12 @@ GitHub Actions で CI とリリース用 workflow を分けています。
 
 作成する成果物:
 
-- `wol-relay_<version>_windows_amd64_*`
-- `wol-relay_<version>_windows_arm64_*`
+- `wol-relay_<version>_windows_amd64_wol-relay-win-amd64-Setup.exe`
+- `wol-relay_<version>_windows_amd64_wol-relay-win-amd64.msi`
+- `wol-relay_<version>_windows_amd64_wol-relay-win-amd64-Portable.zip`
+- `wol-relay_<version>_windows_arm64_wol-relay-win-arm64-Setup.exe`
+- `wol-relay_<version>_windows_arm64_wol-relay-win-arm64.msi`
+- `wol-relay_<version>_windows_arm64_wol-relay-win-arm64-Portable.zip`
 - `wol-relay_<version>_linux_amd64.tar.gz`
 - `wol-relay_<version>_linux_amd64.deb`
 - `wol-relay_<version>_linux_amd64.rpm`

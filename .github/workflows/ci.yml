@@ -175,6 +175,7 @@ jobs:
       matrix:
         include:
           - arch: amd64
+            package_suffix: amd64
             goarch: amd64
             goarm: ""
             runner: ubuntu-latest
@@ -183,6 +184,7 @@ jobs:
             deb_arch: amd64
             rpm_arch: x86_64
           - arch: arm64
+            package_suffix: arm64
             goarch: arm64
             goarm: ""
             runner: ubuntu-24.04-arm
