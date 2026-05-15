@@ -18,6 +18,7 @@ permissions:
   contents: write
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   VPK_VERSION: 0.0.1589-ga2c5a97
 
 jobs:
