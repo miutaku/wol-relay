@@ -11,7 +11,7 @@ vendor: miutaku
 homepage: https://github.com/miutaku/wol-relay
 license: MIT
 contents:
-  - src: ./dist/linux-${ARTIFACT_ARCH}/wol-relay
+  - src: ./dist/linux-__ARTIFACT_ARCH__/wol-relay
     dst: /usr/bin/wol-relay
     file_info:
       mode: 0755

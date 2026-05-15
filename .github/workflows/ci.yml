@@ -253,8 +253,9 @@ jobs:
           ARTIFACT_ARCH: ${{ matrix.arch }}
         run: |
           mkdir -p dist/packages
-          NFPM_ARCH="${{ matrix.deb_arch }}" nfpm package --config packaging/linux/nfpm.yaml --packager deb --target "dist/packages/wol-relay_${VERSION}_linux_${{ matrix.package_suffix }}.deb"
-          NFPM_ARCH="${{ matrix.rpm_arch }}" nfpm package --config packaging/linux/nfpm.yaml --packager rpm --target "dist/packages/wol-relay_${VERSION}_linux_${{ matrix.package_suffix }}.rpm"
+          sed "s|__ARTIFACT_ARCH__|${ARTIFACT_ARCH}|g" packaging/linux/nfpm.yaml > dist/nfpm-${ARTIFACT_ARCH}.yaml
+          NFPM_ARCH="${{ matrix.deb_arch }}" nfpm package --config "dist/nfpm-${ARTIFACT_ARCH}.yaml" --packager deb --target "dist/packages/wol-relay_${VERSION}_linux_${{ matrix.package_suffix }}.deb"
+          NFPM_ARCH="${{ matrix.rpm_arch }}" nfpm package --config "dist/nfpm-${ARTIFACT_ARCH}.yaml" --packager rpm --target "dist/packages/wol-relay_${VERSION}_linux_${{ matrix.package_suffix }}.rpm"
 
   macos-package:
     name: macOS DMG Compile (${{ matrix.arch }})
