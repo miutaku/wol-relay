@@ -109,13 +109,18 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install GUI build dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
+        run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev rpm
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Install nFPM
+        uses: goreleaser/nfpm-action@v2
+        with:
+          version: latest
 
       - name: Build
         shell: bash
@@ -131,14 +136,27 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             version="${{ inputs.version }}"
           fi
+          package_version="${version#v}"
+          echo "package_version=${package_version}" >> "$GITHUB_ENV"
           tar -C dist -czf "dist/wol-relay_${version}_linux_amd64.tar.gz" linux-amd64
           echo "archive=dist/wol-relay_${version}_linux_amd64.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Build deb/rpm packages
+        shell: bash
+        env:
+          VERSION: ${{ env.package_version }}
+        run: |
+          mkdir -p dist/packages
+          nfpm package --config packaging/linux/nfpm.yaml --packager deb --target "dist/packages/wol-relay_${VERSION}_linux_amd64.deb"
+          nfpm package --config packaging/linux/nfpm.yaml --packager rpm --target "dist/packages/wol-relay_${VERSION}_linux_amd64.rpm"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-amd64
-          path: ${{ env.archive }}
+          path: |
+            ${{ env.archive }}
+            dist/packages/*
 
 #  build-macos:
 #    name: Build macOS (${{ matrix.arch }})

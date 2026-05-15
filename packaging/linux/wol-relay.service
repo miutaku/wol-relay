@@ -1,0 +1,13 @@
+[Unit]
+Description=wol-relay lightweight Wake on LAN agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/wol-relay agent -config /etc/wol-relay/wol-relay.json -light
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

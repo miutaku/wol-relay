@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=wol-relay
+Comment=Wake on LAN relay agent and GUI
+Exec=/usr/bin/wol-relay gui
+Terminal=false
+Categories=Network;

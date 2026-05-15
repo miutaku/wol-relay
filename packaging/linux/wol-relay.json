@@ -1,0 +1,17 @@
+{
+  "node_name": "wol-relay",
+  "listen_http": "127.0.0.1:8080",
+  "listen_magic": [":9"],
+  "allowed_magic_sources": [],
+  "default_relay": "",
+  "default_target": "255.255.255.255:9",
+  "lightweight": true,
+  "auth": {
+    "shared_secret": "change-me-before-use",
+    "allow_insecure": false
+  },
+  "notifications": {
+    "enabled": false
+  },
+  "hosts": []
+}

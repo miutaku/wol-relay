@@ -1,0 +1,36 @@
+name: wol-relay
+arch: amd64
+platform: linux
+version: ${VERSION}
+section: net
+priority: optional
+maintainer: miutaku
+description: |
+  Wake on LAN relay agent and GUI for safely forwarding Wake on LAN requests across L2 segments.
+vendor: miutaku
+homepage: https://github.com/miutaku/wol-relay
+license: MIT
+contents:
+  - src: ./dist/linux-amd64/wol-relay
+    dst: /usr/bin/wol-relay
+    file_info:
+      mode: 0755
+  - src: ./packaging/linux/wol-relay.desktop
+    dst: /usr/share/applications/wol-relay.desktop
+    packager: deb
+  - src: ./packaging/linux/wol-relay.desktop
+    dst: /usr/share/applications/wol-relay.desktop
+    packager: rpm
+  - src: ./packaging/linux/wol-relay.service
+    dst: /usr/lib/systemd/system/wol-relay.service
+    packager: rpm
+  - src: ./packaging/linux/wol-relay.service
+    dst: /lib/systemd/system/wol-relay.service
+    packager: deb
+  - src: ./packaging/linux/wol-relay.json
+    dst: /etc/wol-relay/wol-relay.json
+    type: config|noreplace
+  - src: ./README.md
+    dst: /usr/share/doc/wol-relay/README.md
+  - src: ./LICENSE
+    dst: /usr/share/doc/wol-relay/LICENSE

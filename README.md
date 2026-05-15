@@ -159,6 +159,22 @@ macOS / Linux:
 sh ./packaging/install-unix.sh
 ```
 
+Debian / Ubuntu 系では `.deb`、Fedora / RHEL 系では `.rpm` も利用できます。
+
+```bash
+sudo apt install ./wol-relay_<version>_linux_amd64.deb
+```
+
+```bash
+sudo dnf install ./wol-relay_<version>_linux_amd64.rpm
+```
+
+パッケージ版は `/usr/bin/wol-relay`、デスクトップエントリ、systemd service 定義、`/etc/wol-relay/wol-relay.json` を配置します。Agent として常駐させる場合は、設定ファイルを編集したあとに service を有効化します。
+
+```bash
+sudo systemctl enable --now wol-relay.service
+```
+
 Raspberry Pi などを GUI なしの Agent ノードとして常駐させる場合:
 
 ```bash
@@ -383,10 +399,12 @@ GitHub Actions で CI とリリース用 workflow を分けています。
 - `wol-relay-<version>.msi`
 - `RELEASES`
 - `wol-relay_<version>_linux_amd64.tar.gz`
+- `wol-relay_<version>_linux_amd64.deb`
+- `wol-relay_<version>_linux_amd64.rpm`
 - `wol-relay_<version>_darwin_amd64.tar.gz`
 - `wol-relay_<version>_darwin_arm64.tar.gz`
 
-Windows 向け成果物は Velopack で生成します。`Setup.exe` は通常のユーザー向けインストーラー、`.msi` は Windows Installer 統合用です。MSI は per-machine インストールとして `Program Files` 配下に展開され、Windows のアプリケーション一覧とアンインストール機能に登録されます。Linux / macOS 向け tar.gz には、アプリ本体、インストールスクリプト、アンインストールスクリプト、README、LICENSE を含めます。
+Windows 向け成果物は Velopack で生成します。`Setup.exe` は通常のユーザー向けインストーラー、`.msi` は Windows Installer 統合用です。MSI は per-machine インストールとして `Program Files` 配下に展開され、Windows のアプリケーション一覧とアンインストール機能に登録されます。Linux 向けには tar.gz に加えて nFPM で `.deb` / `.rpm` も生成します。macOS 向け tar.gz には、アプリ本体、インストールスクリプト、アンインストールスクリプト、README、LICENSE を含めます。
 
 推奨リリースフロー:
 
