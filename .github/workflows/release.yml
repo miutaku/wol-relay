@@ -22,14 +22,30 @@ env:
 
 jobs:
   build-windows:
-    name: Build Windows Velopack
-    runs-on: windows-latest
+    name: Build Windows Velopack (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            package_suffix: amd64
+            goarch: amd64
+            runner: windows-latest
+            runtime: win-x64
+            cc: zig cc -target x86_64-windows-gnu
+          - arch: arm64
+            package_suffix: arm64
+            goarch: arm64
+            runner: windows-11-arm
+            runtime: win-arm64
+            cc: zig cc -target aarch64-windows-gnu
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install MinGW
-        run: choco install mingw -y
+      - name: Install Zig
+        run: choco install zig -y
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -61,8 +77,10 @@ jobs:
       - name: Build app
         shell: pwsh
         run: |
-          $env:Path += ";C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin"
           New-Item -ItemType Directory -Force -Path dist\velopack-input | Out-Null
+          $env:GOARCH = "${{ matrix.goarch }}"
+          $env:CGO_ENABLED = "1"
+          $env:CC = "${{ matrix.cc }}"
           go build -tags nativegui -ldflags="-H=windowsgui" -o dist\velopack-input\wol-relay.exe .\cmd\wol-relay
 
       - name: Build Velopack release
@@ -78,6 +96,8 @@ jobs:
             --packTitle "wol-relay Wake on LAN" `
             --packAuthors miutaku `
             --outputDir dist\windows-velopack `
+            --runtime "${{ matrix.runtime }}" `
+            --channel "win-${{ matrix.arch }}" `
             --aumid miutaku.wol-relay.wake `
             --shortcuts Desktop,StartMenuRoot `
             --skipVeloAppCheck `
@@ -90,26 +110,71 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist\windows-release | Out-Null
-          Copy-Item dist\windows-velopack\* dist\windows-release\
+          Get-ChildItem dist\windows-velopack | ForEach-Object {
+            Copy-Item $_.FullName "dist\windows-release\wol-relay_${{ env.version }}_windows_${{ matrix.arch }}_$($_.Name)"
+          }
           if (Test-Path dist\velopack-input\wol-relay.exe) {
-            Copy-Item dist\velopack-input\wol-relay.exe "dist\windows-release\wol-relay_${{ env.version }}_windows_amd64_portable.exe"
+            Copy-Item dist\velopack-input\wol-relay.exe "dist\windows-release\wol-relay_${{ env.version }}_windows_${{ matrix.arch }}_portable.exe"
           }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-velopack
+          name: windows-${{ matrix.arch }}
           path: dist/windows-release/*
 
   build-linux:
-    name: Build Linux
-    runs-on: ubuntu-latest
+    name: Build Linux (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            goarch: amd64
+            goarm: ""
+            runner: ubuntu-latest
+            tags: nativegui
+            cgo: "1"
+            deb_arch: amd64
+            rpm_arch: x86_64
+          - arch: arm64
+            goarch: arm64
+            goarm: ""
+            runner: ubuntu-24.04-arm
+            tags: nativegui
+            cgo: "1"
+            deb_arch: arm64
+            rpm_arch: aarch64
+          - arch: armv7
+            package_suffix: armv7-headless
+            goarch: arm
+            goarm: "7"
+            runner: ubuntu-latest
+            tags: ""
+            cgo: "0"
+            deb_arch: armhf
+            rpm_arch: armv7hl
+          - arch: armv6
+            package_suffix: armv6-headless
+            goarch: arm
+            goarm: "6"
+            runner: ubuntu-latest
+            tags: ""
+            cgo: "0"
+            deb_arch: armhf
+            rpm_arch: armv6hl
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install GUI build dependencies
+        if: matrix.tags == 'nativegui'
         run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev rpm
+
+      - name: Install package build dependencies
+        if: matrix.tags != 'nativegui'
+        run: sudo apt-get update && sudo apt-get install -y rpm
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -124,10 +189,18 @@ jobs:
 
       - name: Build
         shell: bash
+        env:
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: ${{ matrix.cgo }}
         run: |
-          mkdir -p dist/linux-amd64
-          go build -tags nativegui -o dist/linux-amd64/wol-relay ./cmd/wol-relay
-          cp README.md LICENSE dist/linux-amd64/
+          mkdir -p "dist/linux-${{ matrix.arch }}"
+          if [ -n "${{ matrix.tags }}" ]; then
+            go build -tags "${{ matrix.tags }}" -o "dist/linux-${{ matrix.arch }}/wol-relay" ./cmd/wol-relay
+          else
+            go build -o "dist/linux-${{ matrix.arch }}/wol-relay" ./cmd/wol-relay
+          fi
+          cp README.md LICENSE "dist/linux-${{ matrix.arch }}/"
 
       - name: Package
         shell: bash
@@ -138,22 +211,23 @@ jobs:
           fi
           package_version="${version#v}"
           echo "package_version=${package_version}" >> "$GITHUB_ENV"
-          tar -C dist -czf "dist/wol-relay_${version}_linux_amd64.tar.gz" linux-amd64
-          echo "archive=dist/wol-relay_${version}_linux_amd64.tar.gz" >> "$GITHUB_ENV"
+          tar -C dist -czf "dist/wol-relay_${version}_linux_${{ matrix.package_suffix }}.tar.gz" "linux-${{ matrix.arch }}"
+          echo "archive=dist/wol-relay_${version}_linux_${{ matrix.package_suffix }}.tar.gz" >> "$GITHUB_ENV"
 
       - name: Build deb/rpm packages
         shell: bash
         env:
           VERSION: ${{ env.package_version }}
+          ARTIFACT_ARCH: ${{ matrix.arch }}
         run: |
           mkdir -p dist/packages
-          nfpm package --config packaging/linux/nfpm.yaml --packager deb --target "dist/packages/wol-relay_${VERSION}_linux_amd64.deb"
-          nfpm package --config packaging/linux/nfpm.yaml --packager rpm --target "dist/packages/wol-relay_${VERSION}_linux_amd64.rpm"
+          NFPM_ARCH="${{ matrix.deb_arch }}" nfpm package --config packaging/linux/nfpm.yaml --packager deb --target "dist/packages/wol-relay_${VERSION}_linux_${{ matrix.package_suffix }}.deb"
+          NFPM_ARCH="${{ matrix.rpm_arch }}" nfpm package --config packaging/linux/nfpm.yaml --packager rpm --target "dist/packages/wol-relay_${VERSION}_linux_${{ matrix.package_suffix }}.rpm"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-amd64
+          name: linux-${{ matrix.arch }}
           path: |
             ${{ env.archive }}
             dist/packages/*

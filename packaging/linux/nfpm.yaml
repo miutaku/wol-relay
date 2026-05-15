@@ -1,5 +1,5 @@
 name: wol-relay
-arch: amd64
+arch: ${NFPM_ARCH}
 platform: linux
 version: ${VERSION}
 section: net
@@ -11,7 +11,7 @@ vendor: miutaku
 homepage: https://github.com/miutaku/wol-relay
 license: MIT
 contents:
-  - src: ./dist/linux-amd64/wol-relay
+  - src: ./dist/linux-${ARTIFACT_ARCH}/wol-relay
     dst: /usr/bin/wol-relay
     file_info:
       mode: 0755

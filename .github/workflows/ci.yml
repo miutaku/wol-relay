@@ -59,8 +59,18 @@ jobs:
         run: go test ./...
 
   nativegui:
-    name: Native GUI Compile
-    runs-on: ubuntu-latest
+    name: Native GUI Compile (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            goarch: amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            goarch: arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -78,17 +88,36 @@ jobs:
         run: go test -tags nativegui ./internal/nativegui ./cmd/wol-relay
 
       - name: Build native GUI app
+        env:
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "1"
         run: go build -tags nativegui -o /tmp/wol-relay ./cmd/wol-relay
 
   windows-package:
-    name: Windows Velopack Compile
-    runs-on: windows-latest
+    name: Windows Velopack Compile (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            package_suffix: amd64
+            goarch: amd64
+            runner: windows-latest
+            runtime: win-x64
+            cc: zig cc -target x86_64-windows-gnu
+          - arch: arm64
+            package_suffix: arm64
+            goarch: arm64
+            runner: windows-11-arm
+            runtime: win-arm64
+            cc: zig cc -target aarch64-windows-gnu
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install MinGW
-        run: choco install mingw -y
+      - name: Install Zig
+        run: choco install zig -y
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -107,8 +136,11 @@ jobs:
       - name: Build Windows app
         shell: pwsh
         run: |
-          $env:Path += ";C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin;$env:USERPROFILE\.dotnet\tools"
+          $env:Path += ";$env:USERPROFILE\.dotnet\tools"
           New-Item -ItemType Directory -Force -Path dist\velopack-input | Out-Null
+          $env:GOARCH = "${{ matrix.goarch }}"
+          $env:CGO_ENABLED = "1"
+          $env:CC = "${{ matrix.cc }}"
           go build -tags nativegui -ldflags="-H=windowsgui" -o dist\velopack-input\wol-relay.exe .\cmd\wol-relay
 
       - name: Validate Velopack package
@@ -125,6 +157,8 @@ jobs:
             --packTitle "wol-relay Wake on LAN" `
             --packAuthors miutaku `
             --outputDir dist\velopack-ci `
+            --runtime "${{ matrix.runtime }}" `
+            --channel "win-${{ matrix.arch }}" `
             --aumid miutaku.wol-relay.wake `
             --shortcuts Desktop,StartMenuRoot `
             --skipVeloAppCheck `
@@ -132,6 +166,94 @@ jobs:
             --msiVersion 0.0.1 `
             --instLocation PerMachine `
             --instLicense packaging\LICENSE.md
+
+  linux-package:
+    name: Linux Package Compile (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            goarch: amd64
+            goarm: ""
+            runner: ubuntu-latest
+            tags: nativegui
+            cgo: "1"
+            deb_arch: amd64
+            rpm_arch: x86_64
+          - arch: arm64
+            goarch: arm64
+            goarm: ""
+            runner: ubuntu-24.04-arm
+            tags: nativegui
+            cgo: "1"
+            deb_arch: arm64
+            rpm_arch: aarch64
+          - arch: armv7
+            package_suffix: armv7-headless
+            goarch: arm
+            goarm: "7"
+            runner: ubuntu-latest
+            tags: ""
+            cgo: "0"
+            deb_arch: armhf
+            rpm_arch: armv7hl
+          - arch: armv6
+            package_suffix: armv6-headless
+            goarch: arm
+            goarm: "6"
+            runner: ubuntu-latest
+            tags: ""
+            cgo: "0"
+            deb_arch: armhf
+            rpm_arch: armv6hl
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install GUI build dependencies
+        if: matrix.tags == 'nativegui'
+        run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev rpm
+
+      - name: Install package build dependencies
+        if: matrix.tags != 'nativegui'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install nFPM
+        uses: goreleaser/nfpm-action@v2
+        with:
+          version: latest
+
+      - name: Build binary
+        shell: bash
+        env:
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: ${{ matrix.cgo }}
+        run: |
+          mkdir -p "dist/linux-${{ matrix.arch }}"
+          if [ -n "${{ matrix.tags }}" ]; then
+            go build -tags "${{ matrix.tags }}" -o "dist/linux-${{ matrix.arch }}/wol-relay" ./cmd/wol-relay
+          else
+            go build -o "dist/linux-${{ matrix.arch }}/wol-relay" ./cmd/wol-relay
+          fi
+
+      - name: Validate deb/rpm packages
+        shell: bash
+        env:
+          VERSION: 0.0.1-ci
+          ARTIFACT_ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p dist/packages
+          NFPM_ARCH="${{ matrix.deb_arch }}" nfpm package --config packaging/linux/nfpm.yaml --packager deb --target "dist/packages/wol-relay_${VERSION}_linux_${{ matrix.package_suffix }}.deb"
+          NFPM_ARCH="${{ matrix.rpm_arch }}" nfpm package --config packaging/linux/nfpm.yaml --packager rpm --target "dist/packages/wol-relay_${VERSION}_linux_${{ matrix.package_suffix }}.rpm"
 
   macos-package:
     name: macOS DMG Compile (${{ matrix.arch }})

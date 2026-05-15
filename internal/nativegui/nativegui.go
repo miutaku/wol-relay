@@ -337,7 +337,7 @@ func Run(ctx context.Context, opts Options) error {
 			sampled("共有シークレット", "長いランダム文字列", "Agent同士が本物か確認するための設定です。通信するAgentで同じ値にします。", sharedSecret),
 			fieldCard("HMAC認証を無効化", "通常はオフにしてください。オンにするとAgent間の認証確認を省略します。", allowInsecure),
 			fieldCard("OS通知を有効化", "起動依頼や起動確認の結果をOSの通知に表示します。", notificationsEnabled),
-			fieldCard("ログイン時に自動起動", "macOSでは、このアプリをログイン時に起動するLaunchAgentをユーザー単位で登録します。DMGからApplicationsへコピーした後、必要な人だけONにしてください。", loginStartup),
+			fieldCard("ログイン時に自動起動", "このアプリをログイン時に起動します。WindowsはユーザーのRunレジストリ、macOSはLaunchAgent、LinuxはXDG Autostartにユーザー単位で登録します。", loginStartup),
 			fieldCard("軽量モード", "GUIからは変更できません。Raspberry Piなどで常駐させる場合は、Linuxパッケージのsystemd service または wol-relay agent -light で起動します。", helpText("CLI/インストールモード専用")),
 		),
 		sectionCard("設定ファイル",
