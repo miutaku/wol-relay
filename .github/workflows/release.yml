@@ -20,6 +20,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   VPK_VERSION: 0.0.1589-ga2c5a97
+  NFPM_VERSION: v2.46.3
 
 jobs:
   build-windows:
@@ -187,8 +188,10 @@ jobs:
 
       - name: Install nFPM
         shell: bash
+        env:
+          GOTOOLCHAIN: auto
         run: |
-          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@$NFPM_VERSION
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Build
