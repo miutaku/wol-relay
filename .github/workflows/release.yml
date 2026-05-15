@@ -127,7 +127,7 @@ jobs:
         run: |
           mkdir -p dist/linux-amd64
           go build -tags nativegui -o dist/linux-amd64/wol-relay ./cmd/wol-relay
-          cp packaging/install-unix.sh packaging/uninstall-unix.sh README.md LICENSE dist/linux-amd64/
+          cp README.md LICENSE dist/linux-amd64/
 
       - name: Package
         shell: bash
@@ -158,49 +158,50 @@ jobs:
             ${{ env.archive }}
             dist/packages/*
 
-#  build-macos:
-#    name: Build macOS (${{ matrix.arch }})
-#    runs-on: ${{ matrix.runner }}
-#    strategy:
-#      fail-fast: false
-#      matrix:
-#        include:
-#          - arch: amd64
-#            runner: macos-26-intel
-#          - arch: arm64
-#            runner: macos-26
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v4
-#
-#      - name: Set up Go
-#        uses: actions/setup-go@v5
-#        with:
-#          go-version-file: go.mod
-#          cache: true
-#
-#      - name: Build
-#        shell: bash
-#        run: |
-#          mkdir -p "dist/darwin-${{ matrix.arch }}"
-#          GOARCH="${{ matrix.arch }}" go build -tags nativegui -o "dist/darwin-${{ matrix.arch }}/wol-relay" ./cmd/wol-relay
-#          cp packaging/install-unix.sh packaging/uninstall-unix.sh README.md LICENSE "dist/darwin-${{ matrix.arch }}/"
-#
-#      - name: Package
-#        shell: bash
-#        run: |
-#          version="${{ github.ref_name }}"
-#          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-#            version="${{ inputs.version }}"
-#          fi
-#          tar -C dist -czf "dist/wol-relay_${version}_darwin_${{ matrix.arch }}.tar.gz" "darwin-${{ matrix.arch }}"
-#          echo "archive=dist/wol-relay_${version}_darwin_${{ matrix.arch }}.tar.gz" >> "$GITHUB_ENV"
-#
-#      - name: Upload artifact
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: darwin-${{ matrix.arch }}
-#          path: ${{ env.archive }}
+  build-macos:
+    name: Build macOS DMG (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: macos-26-intel
+          - arch: arm64
+            runner: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Resolve version
+        shell: bash
+        run: |
+          version="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version="${{ inputs.version }}"
+          fi
+          echo "version=${version}" >> "$GITHUB_ENV"
+          echo "package_version=${version#v}" >> "$GITHUB_ENV"
+
+      - name: Build DMG
+        shell: bash
+        env:
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          VERSION="${package_version}" ./packaging/build-macos-dmg.sh
+          echo "dmg=dist/wol-relay_${package_version}_darwin_${GOARCH}.dmg" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: darwin-${{ matrix.arch }}
+          path: ${{ env.dmg }}
 
   publish:
     name: Publish GitHub Release
@@ -208,7 +209,7 @@ jobs:
     needs:
       - build-windows
       - build-linux
-#      - build-macos
+      - build-macos
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4

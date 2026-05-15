@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/miutaku/wol-relay/internal/agent"
+	"github.com/miutaku/wol-relay/internal/autostart"
 	"github.com/miutaku/wol-relay/internal/config"
 	"github.com/miutaku/wol-relay/internal/wol"
 )
@@ -46,6 +47,8 @@ func (s Server) Run(ctx context.Context) error {
 	mux.HandleFunc("GET /", s.handleIndex)
 	mux.HandleFunc("GET /api/config", s.handleConfig)
 	mux.HandleFunc("GET /api/config-path", s.handleConfigPath)
+	mux.HandleFunc("GET /api/autostart", s.handleAutostart)
+	mux.HandleFunc("PUT /api/autostart", s.handleUpdateAutostart)
 	mux.HandleFunc("POST /api/open-config-dir", s.handleOpenConfigDir)
 	mux.HandleFunc("PUT /api/config", s.handleUpdateConfig)
 	mux.HandleFunc("POST /api/hosts", s.handleAddHost)
@@ -155,6 +158,30 @@ func (s Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 
 func (s Server) handleConfigPath(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"path": s.ConfigPath, "dir": filepath.Dir(s.ConfigPath)})
+}
+
+func (s Server) handleAutostart(w http.ResponseWriter, _ *http.Request) {
+	enabled, err := autostart.IsEnabled(s.ConfigPath)
+	if err != nil && autostart.IsSupported() {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"supported": autostart.IsSupported(), "enabled": enabled})
+}
+
+func (s Server) handleUpdateAutostart(w http.ResponseWriter, req *http.Request) {
+	var payload struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := autostart.SetEnabled(payload.Enabled, s.ConfigPath); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"supported": autostart.IsSupported(), "enabled": payload.Enabled})
 }
 
 func (s Server) handleOpenConfigDir(w http.ResponseWriter, _ *http.Request) {

@@ -132,3 +132,31 @@ jobs:
             --msiVersion 0.0.1 `
             --instLocation PerMachine `
             --instLicense packaging\LICENSE.md
+
+  macos-package:
+    name: macOS DMG Compile (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: macos-26-intel
+          - arch: arm64
+            runner: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build DMG
+        shell: bash
+        env:
+          GOARCH: ${{ matrix.arch }}
+          VERSION: 0.0.1-ci
+        run: ./packaging/build-macos-dmg.sh

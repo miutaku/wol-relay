@@ -224,7 +224,8 @@
           <label class="field">共有シークレット <span class="sample">例: 長いランダム文字列</span><span class="desc">Agent同士が本物か確認するための合言葉です。通信するAgentで同じ値にします。</span><input id="sharedSecret" autocomplete="off" placeholder="change-me-long-random-secret"></label>
           <label class="field"><input id="allowInsecure" type="checkbox">HMAC認証を無効化 <span class="desc">通常はオフにしてください。オンにするとAgent間の認証確認を省略します。</span></label>
           <label class="field"><input id="notificationsEnabled" type="checkbox">OS通知を有効化 <span class="desc">起動依頼や起動確認の結果をOSの通知に表示します。</span></label>
-          <div class="field disabled">軽量モード <span class="desc">GUIからは変更できません。Raspberry Piなどで常駐させる場合は、INSTALL_MODE=agent または wol-relay agent -light で起動します。</span></div>
+          <label class="field"><input id="loginStartup" type="checkbox">ログイン時に自動起動 <span class="desc">macOSでは、ログイン時にこのアプリを起動するLaunchAgentをユーザー単位で登録します。DMGからApplicationsへコピーした後、必要な人だけONにしてください。</span></label>
+          <div class="field disabled">軽量モード <span class="desc">GUIからは変更できません。Raspberry Piなどで常駐させる場合は、Linuxパッケージのsystemd service または wol-relay agent -light で起動します。</span></div>
         </div>
       </div>
       <div class="category">
@@ -296,6 +297,7 @@
     const sharedSecret = document.querySelector("#sharedSecret");
     const allowInsecure = document.querySelector("#allowInsecure");
     const notificationsEnabled = document.querySelector("#notificationsEnabled");
+    const loginStartup = document.querySelector("#loginStartup");
     const hostName = document.querySelector("#hostName");
     const hostMac = document.querySelector("#hostMac");
     const hostIp = document.querySelector("#hostIp");
@@ -374,6 +376,7 @@
       allowInsecure.checked = !!cfg.auth?.allow_insecure;
       notificationsEnabled.checked = !!cfg.notifications?.enabled;
       loadConfigPath();
+      loadAutostart();
       hosts.innerHTML = "";
       if (cfg.hosts.length === 0) {
         status.textContent = "起こしたいPCやサーバーを追加してください。";
@@ -393,6 +396,18 @@
         el.querySelector(".edit").addEventListener("click", () => loadHostForm(host));
         el.querySelector(".delete").addEventListener("click", () => deleteHost(label));
         hosts.appendChild(el);
+      }
+    }
+
+    async function loadAutostart() {
+      try {
+        const res = await fetch("/api/autostart");
+        const payload = await res.json();
+        loginStartup.checked = !!payload.enabled;
+        loginStartup.disabled = !payload.supported;
+      } catch {
+        loginStartup.checked = false;
+        loginStartup.disabled = true;
       }
     }
 
@@ -499,6 +514,15 @@
         });
         const text = await res.text();
         if (!res.ok) throw new Error(text);
+        if (!loginStartup.disabled) {
+          const startupRes = await fetch("/api/autostart", {
+            method: "PUT",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({enabled: loginStartup.checked})
+          });
+          const startupText = await startupRes.text();
+          if (!startupRes.ok) throw new Error(startupText);
+        }
         currentConfig = JSON.parse(text);
         status.textContent = "全体設定を保存しました。待ち受けアドレスの変更は次回起動から反映されます。";
         await load();

@@ -18,6 +18,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/miutaku/wol-relay/internal/agent"
+	"github.com/miutaku/wol-relay/internal/autostart"
 	"github.com/miutaku/wol-relay/internal/config"
 )
 
@@ -62,6 +63,15 @@ func Run(ctx context.Context, opts Options) error {
 	allowInsecure.SetChecked(cfg.Auth.AllowInsecure)
 	notificationsEnabled := widget.NewCheck("OS通知を有効化", nil)
 	notificationsEnabled.SetChecked(cfg.Notifications.Enabled)
+	loginStartup := widget.NewCheck("ログイン時に自動起動", nil)
+	if autostart.IsSupported() {
+		enabled, err := autostart.IsEnabled(opts.ConfigPath)
+		if err == nil {
+			loginStartup.SetChecked(enabled)
+		}
+	} else {
+		loginStartup.Disable()
+	}
 	syncSettings := func() {
 		cfg := opts.Agent.Config()
 		nodeName.SetText(cfg.NodeName)
@@ -237,6 +247,16 @@ func Run(ctx context.Context, opts Options) error {
 			status.SetText(err.Error())
 			return
 		}
+		if loginStartup.Checked && !autostart.IsSupported() {
+			status.SetText("このOSではアプリ内からの自動起動登録にまだ対応していません。")
+			return
+		}
+		if autostart.IsSupported() {
+			if err := autostart.SetEnabled(loginStartup.Checked, opts.ConfigPath); err != nil {
+				status.SetText(err.Error())
+				return
+			}
+		}
 		syncSettings()
 		status.SetText("全体設定を保存しました。待ち受けアドレスの変更は次回起動から反映されます。")
 	})
@@ -317,7 +337,8 @@ func Run(ctx context.Context, opts Options) error {
 			sampled("共有シークレット", "長いランダム文字列", "Agent同士が本物か確認するための設定です。通信するAgentで同じ値にします。", sharedSecret),
 			fieldCard("HMAC認証を無効化", "通常はオフにしてください。オンにするとAgent間の認証確認を省略します。", allowInsecure),
 			fieldCard("OS通知を有効化", "起動依頼や起動確認の結果をOSの通知に表示します。", notificationsEnabled),
-			fieldCard("軽量モード", "GUIからは変更できません。Raspberry Piなどで常駐させる場合は、INSTALL_MODE=agent または wol-relay agent -light で起動します。", helpText("CLI/インストールモード専用")),
+			fieldCard("ログイン時に自動起動", "macOSでは、このアプリをログイン時に起動するLaunchAgentをユーザー単位で登録します。DMGからApplicationsへコピーした後、必要な人だけONにしてください。", loginStartup),
+			fieldCard("軽量モード", "GUIからは変更できません。Raspberry Piなどで常駐させる場合は、Linuxパッケージのsystemd service または wol-relay agent -light で起動します。", helpText("CLI/インストールモード専用")),
 		),
 		sectionCard("設定ファイル",
 			fieldCard("設定ファイルの直接編集", "GUIで変更できない項目や細かい設定を変える場合は、設定ファイルを編集してください。編集後はアプリを再起動すると反映されます。", container.NewVBox(helpText(opts.ConfigPath), openConfigButton)),
