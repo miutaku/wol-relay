@@ -109,7 +109,7 @@ jobs:
           - arch: arm64
             package_suffix: arm64
             goarch: arm64
-            runner: windows-11-arm
+            runner: windows-latest
             runtime: win-arm64
             cc: zig cc -target aarch64-windows-gnu
     steps:
