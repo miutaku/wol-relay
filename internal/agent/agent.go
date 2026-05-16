@@ -33,8 +33,8 @@ type Agent struct {
 	notifier notify.Notifier
 	mu       sync.RWMutex
 
-	burstMu           sync.Mutex
-	burstMap          map[string]*magicBurst
+	burstMu             sync.Mutex
+	burstMap            map[string]*magicBurst
 	burstDebounceWindow time.Duration
 }
 
