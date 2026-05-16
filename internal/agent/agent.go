@@ -33,8 +33,9 @@ type Agent struct {
 	notifier notify.Notifier
 	mu       sync.RWMutex
 
-	burstMu  sync.Mutex
-	burstMap map[string]*magicBurst
+	burstMu           sync.Mutex
+	burstMap          map[string]*magicBurst
+	burstDebounceWindow time.Duration
 }
 
 type WakeResult struct {
@@ -57,7 +58,8 @@ func New(cfg config.Config) *Agent {
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		notifier: notify.OSNotifier{Enabled: cfg.Notifications.Enabled && !cfg.Lightweight},
+		notifier:            notify.OSNotifier{Enabled: cfg.Notifications.Enabled && !cfg.Lightweight},
+		burstDebounceWindow: 30 * time.Second,
 	}
 }
 
@@ -424,8 +426,6 @@ func (a *Agent) magicSourceAllowed(remote *net.UDPAddr) bool {
 	return false
 }
 
-const magicDebounceWindow = 30 * time.Second
-
 type magicBurst struct {
 	timer *time.Timer
 	count int
@@ -446,7 +446,7 @@ func (a *Agent) trackMagicBurst(mac string, notifyFn func(count int)) (first boo
 		return false
 	}
 	b := &magicBurst{count: 1}
-	b.timer = time.AfterFunc(magicDebounceWindow, func() {
+	b.timer = time.AfterFunc(a.burstDebounceWindow, func() {
 		a.burstMu.Lock()
 		count := a.burstMap[mac].count
 		delete(a.burstMap, mac)

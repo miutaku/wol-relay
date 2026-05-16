@@ -64,12 +64,14 @@ func TestHandleDetectedMagicDoesNotResendLocalPacket(t *testing.T) {
 		},
 	})
 	a.notifier = n
+	a.burstDebounceWindow = 50 * time.Millisecond
 
 	hw, err := net.ParseMAC("00:11:22:33:44:55")
 	if err != nil {
 		t.Fatal(err)
 	}
 	a.handleDetectedMagic(context.Background(), &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 9}, hw)
+	time.Sleep(100 * time.Millisecond)
 	if len(n.titles) != 1 || n.titles[0] != "Wake on LANを検知しました" {
 		t.Fatalf("unexpected notifications: %v", n.titles)
 	}
@@ -101,6 +103,7 @@ func TestListenMagicDetectsUDPMagicPacket(t *testing.T) {
 		},
 	})
 	a.notifier = notifier
+	a.burstDebounceWindow = 50 * time.Millisecond
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
