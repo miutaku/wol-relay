@@ -320,51 +320,95 @@ func Run(ctx context.Context, opts Options) error {
 
 	settingsForm := container.NewVBox(
 		widget.NewLabelWithStyle("全体設定", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		helpText("このPCで動く wol-relay Agent 全体の設定です。家庭内LANだけで使う場合は、多くの項目は初期値のままで使えます。"),
+		helpText("このPCで動く wol-relay 全体の設定です。初めて使う場合、多くの項目は初期値のままで問題ありません。"),
 		sectionCard("このPCの基本情報",
-			sampled("このPCの名前", "desktop", "他のPCから見たときの識別名です。許可設定でも使います。", nodeName),
-			sampled("他のAgentから受け付けるアドレス", "127.0.0.1:8080 / 192.168.20.10:8080", "別セグメントのAgentから起動依頼を受けるPCだけ、LANのIPアドレスにします。", listenHTTP),
+			sampled("このPCの名前", "desktop",
+				"このwol-relayを識別する名前です。「living-room-pc」「laptop」など、わかりやすい英数字の名前をつけてください。ホスト設定の「許可する送信元Agent名」でこの名前を使います。",
+				nodeName),
+			sampled("Wake依頼を受け付けるアドレス", "127.0.0.1:8080",
+				"他のPCからのWake依頼を受け取るアドレスとポート番号です。\n・同じLAN内だけで使う場合 → 「127.0.0.1:8080」のままでOK\n・別のLAN（ルーターの向こう）からも受け付けたい場合 → 「192.168.10.20:8080」のようにこのPCのIPアドレスに変更してください",
+				listenHTTP),
 		),
-		sectionCard("マジックパケットの検知",
-			sampled("マジックパケット検知ポート", ":9", "他のWake on LANツールが送った信号を、このアプリが検知するためのUDPポートです。", listenMagic),
-			sampled("検知を許可する送信元", "192.168.10.0/24", "空なら制限しません。特定のPCやLANからの信号だけ受けたい時に指定します。", allowedMagicSources),
+		sectionCard("Wake on LAN信号の検知",
+			sampled("受信ポート", ":9",
+				"他のWake on LANアプリが送った信号を受け取るUDPポート番号です。通常は「:9」のままで問題ありません。変更すると他のWoLアプリと連携できなくなる場合があります。",
+				listenMagic),
+			sampled("信号を受け付けるIPアドレスの範囲", "192.168.10.0/24",
+				"Wake on LAN信号を受け付けるIPアドレスの範囲です。\n・空のまま → どのPCからでも受け付ける\n・特定のPC1台だけ → 「192.168.10.5」\n・特定のネットワーク全体 → 「192.168.10.0/24」\n複数指定する場合はカンマ区切りで入力してください。",
+				allowedMagicSources),
 		),
-		sectionCard("標準の送信先",
-			sampled("標準の送信先Agent", "http://192.168.20.10:8080", "別セグメントへ起動依頼する時の標準の宛先です。各ホストで個別指定もできます。", defaultRelay),
-			sampled("標準のブロードキャスト宛先", "255.255.255.255:9 / 192.168.10.255:9", "同じLAN内のPCを起こす時に送る宛先です。通常は初期値で動きます。", defaultTarget),
+		sectionCard("Wake信号の標準送り先",
+			sampled("標準の中継先（別LAN用）", "http://192.168.20.10:8080",
+				"別のLAN（ルーターの向こう）にいるPCを起こすとき、そのLAN側で動いているwol-relayのURLです。同じLAN内のPCだけを起こす場合は空でOKです。各ホストで個別に上書きもできます。",
+				defaultRelay),
+			sampled("標準のブロードキャスト宛先", "255.255.255.255:9",
+				"同じLAN内のPCを起こすときにWake信号を送る宛先です。\n・「255.255.255.255:9」→ LAN全体に送る（通常はこれでOK）\n・「192.168.10.255:9」→ 特定のネットワークだけに送る\n各ホストで個別に上書きもできます。",
+				defaultTarget),
 		),
-		sectionCard("安全設定と表示設定",
-			sampled("共有シークレット", "長いランダム文字列", "Agent同士が本物か確認するための設定です。通信するAgentで同じ値にします。", sharedSecret),
-			fieldCard("HMAC認証を無効化", "通常はオフにしてください。オンにするとAgent間の認証確認を省略します。", allowInsecure),
-			fieldCard("OS通知を有効化", "起動依頼や起動確認の結果をOSの通知に表示します。", notificationsEnabled),
-			fieldCard("ログイン時に自動起動", "このアプリをログイン時に起動します。WindowsはユーザーのRunレジストリ、macOSはLaunchAgent、LinuxはXDG Autostartにユーザー単位で登録します。", loginStartup),
-			fieldCard("軽量モード", "GUIからは変更できません。Raspberry Piなどで常駐させる場合は、Linuxパッケージのsystemd service または wol-relay agent -light で起動します。", helpText("CLI/インストールモード専用")),
+		sectionCard("セキュリティと通知の設定",
+			sampled("共有シークレット（パスワード）", "長いランダム文字列",
+				"連携するwol-relay同士が「本物かどうか」を確認するためのパスワードです。通信するすべてのPCで同じ値を設定してください。長くてランダムな文字列を推奨します。変更した場合は相手側も同じ値に変える必要があります。",
+				sharedSecret),
+			fieldCard("HMAC認証を無効化",
+				"通常はオフのままにしてください。オンにすると上記パスワードによる認証をスキップします。テスト目的以外では使わないでください。",
+				allowInsecure),
+			fieldCard("OS通知を有効化",
+				"Wake信号の送信結果や起動確認の結果をWindowsの通知として表示します。結果をすぐ知りたい場合はオンにしてください。",
+				notificationsEnabled),
+			fieldCard("ログイン時に自動起動",
+				"PCにログインしたとき、このアプリを自動で起動します。常にWake on LANを受け付けたい場合はオンにしてください。",
+				loginStartup),
+			fieldCard("軽量モード",
+				"GUIを表示せず、バックグラウンドだけで動作するモードです。Raspberry PiやサーバーなどGUIのない環境向けで、GUIからは変更できません。コマンドラインまたはインストーラー経由で設定します。",
+				helpText("CLI / インストールモード専用")),
 		),
 		sectionCard("設定ファイル",
-			fieldCard("設定ファイルの直接編集", "GUIで変更できない項目や細かい設定を変える場合は、設定ファイルを編集してください。編集後はアプリを再起動すると反映されます。", container.NewVBox(helpText(opts.ConfigPath), openConfigButton)),
+			fieldCard("設定ファイルの直接編集",
+				"GUIで変更できない詳細な設定を変えたい場合、設定ファイルをテキストエディタで直接編集できます。編集後はアプリを再起動すると反映されます。",
+				container.NewVBox(helpText(opts.ConfigPath), openConfigButton)),
 		),
 		saveSettingsButton,
 	)
 
 	hostForm := container.NewVBox(
 		hostFormTitle,
-		helpText("起こしたいPCやサーバーを登録します。同じLAN内なら名前とMACアドレスだけでも始められます。別セグメントの場合は送信先Agent URLも指定します。"),
+		helpText("起こしたいPCやサーバーを登録します。同じLAN内のPCなら名前とMACアドレスだけで始められます。別のLAN（ルーターの向こう側）のPCを起こす場合は、送信先のwol-relay URLも指定してください。"),
 		sectionCard("起こしたいPCの情報",
-			sampled("表示名", "nas", "Wakeボタンや一覧に出る名前です。わかりやすい名前を付けます。", hostName),
-			sampled("MACアドレス", "00:11:22:33:44:55", "起こしたいPCの有線LANまたは無線LANアダプターのMACアドレスです。", hostMAC),
-			sampled("IPアドレス", "192.168.10.20", "起動できたか確認する時に使います。起動確認を使わないなら空でも構いません。", hostIP),
+			sampled("表示名", "nas",
+				"このアプリ内での表示名です。「gaming-pc」「nas」など、わかりやすい名前をつけてください。Wakeボタンや一覧に表示されます。",
+				hostName),
+			sampled("MACアドレス", "00:11:22:33:44:55",
+				"起こしたいPCのネットワークアダプターに割り当てられた固有のIDです。Wake on LANはこのIDを使って特定のPCだけを起こします。\n・Windowsの確認方法: 設定 → ネットワークとインターネット → 使用中のアダプター → ハードウェアプロパティ → 物理アドレス（MAC）\n・コロン区切り（AA:BB:CC:DD:EE:FF）またはハイフン区切り（AA-BB-CC-DD-EE-FF）で入力できます",
+				hostMAC),
+			sampled("IPアドレス", "192.168.10.20",
+				"起こしたいPCのIPアドレスです。起動確認機能（本当に起動したか確認する機能）を使う場合に必要です。起動確認を使わない場合は空のままでOKです。",
+				hostIP),
 		),
 		sectionCard("Wake信号の送り先",
-			sampled("ブロードキャスト宛先", "192.168.10.255:9", "同じLAN内へWake信号を送る宛先です。空なら全体設定の標準値を使います。", hostBroadcast),
-			sampled("送信先Agent URL", "http://192.168.20.10:8080", "別のLANにいるPCを起こす時、そのLAN側で動いているAgentのURLを入れます。", hostRelay),
-			sampled("許可する送信元Agent名", "desktop, laptop", "このホストを起こしてよいAgent名です。空なら認証済みAgentを許可します。", hostAllowedBy),
+			sampled("ブロードキャスト宛先", "192.168.10.255:9",
+				"同じLAN内のPCを起こすとき、Wake信号を送るネットワークアドレスです。\n・空にする → 全体設定の「標準のブロードキャスト宛先」を使う\n・「192.168.10.255:9」→ 192.168.10.x のネットワーク内に送る\n・「255.255.255.255:9」→ LAN全体に送る",
+				hostBroadcast),
+			sampled("中継先のwol-relay URL", "http://192.168.20.10:8080",
+				"起こしたいPCが別のLAN（ルーターの向こう側）にある場合、そのLANで動いているwol-relayのURLを入力します。同じLAN内のPCを起こすだけなら空でOKです。",
+				hostRelay),
+			sampled("起動を許可するPC名", "desktop, laptop",
+				"このPCを起こすことを許可するwol-relayの名前（全体設定の「このPCの名前」）です。カンマ区切りで複数指定できます。空にすると、認証済みのどのwol-relayからでも起こせます。",
+				hostAllowedBy),
 		),
 		sectionCard("起動確認",
-			container.NewVBox(checkEnabled, helpText("Wake信号を送った後、PCが本当に起動したか確認します。")),
-			sampled("確認方法", "tcp / icmp", "tcpは指定ポートに接続できるか、icmpはping応答があるかで確認します。", checkMethod),
-			sampled("確認TCPポート", "22 / 3389", "確認方法がtcpの時に使います。SSHなら22、リモートデスクトップなら3389です。", checkPort),
-			sampled("確認を待つ時間", "2m", "この時間を過ぎても応答がなければ、起動未確認として扱います。", checkTimeout),
-			sampled("確認の間隔", "3s", "起動確認を何秒ごとに試すかです。通常は初期値で十分です。", checkInterval),
+			container.NewVBox(checkEnabled, helpText("Wake信号を送った後、PCが本当に起動したかどうかを自動で確認します。オンにするとWake後に応答を待ちます。")),
+			sampled("確認方法", "tcp / icmp",
+				"起動確認に使う方法を選びます。\n・「tcp」→ 指定したポートへの接続で確認（確実）\n・「icmp」→ pingで確認（Windowsはデフォルトでpingをブロックするため、ファイアウォール設定が別途必要）\n迷ったら「tcp」を選んでください。",
+				checkMethod),
+			sampled("確認に使うTCPポート", "3389",
+				"確認方法が「tcp」のとき、接続を試みるポート番号です。起動しているか確認できれば何でもOKです。\n・リモートデスクトップ（RDP）を使っているなら → 3389\n・SSHを使っているなら → 22\n・wol-relayが動いているなら → wol-relayのポート番号（例: 8080）",
+				checkPort),
+			sampled("起動確認のタイムアウト", "2m",
+				"この時間が経過しても応答がなければ「起動未確認」として扱います。PCの起動に時間がかかる場合は長めに設定してください。「2m」= 2分、「90s」= 90秒。",
+				checkTimeout),
+			sampled("確認の試行間隔", "3s",
+				"起動確認を何秒おきに繰り返すかです。短くすると起動をより素早く検知できますが、負荷がわずかに増えます。通常は「3s」（3秒）のままで十分です。",
+				checkInterval),
 		),
 		container.NewHBox(hostSaveButton, cancelHostEditButton),
 	)
@@ -372,9 +416,9 @@ func Run(ctx context.Context, opts Options) error {
 	header := container.NewBorder(nil, nil, widget.NewLabel("wol-relay"), nodeLabel)
 	repoURL, _ := url.Parse("https://github.com/miutaku/wol-relay")
 	intro := container.NewVBox(
-		widget.NewLabelWithStyle("Wake on LAN を L2 を超えて安全に届けます", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		helpText("wol-relay は、このPC上の 適当なアプリケーションやシステムによって送出されるマジックパケットを検知し、対象PCが別のLANにいる場合は、そのLAN側のAgentへHMAC署名付きで起動依頼を送ります。"),
-		helpText("ルーターを越えられない通常のWake on LANを、許可したAgent間だけで安全に中継するためのアプリです。"),
+		widget.NewLabelWithStyle("Wake on LAN をルーターを越えて安全に届けます", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		helpText("Wake on LAN（WoL）は電源オフのPCをネットワーク経由で起こす仕組みですが、通常はルーターを越えられません。wol-relay は、別のLAN（ルーターの向こう側）にいるPCへもWake on LAN信号を届けるための中継アプリです。"),
+		helpText("このPCが受け取ったWake信号を、あらかじめ許可した相手のwol-relayへ転送します。転送は署名付きで行われるため、許可していない相手からの起動を防げます。"),
 		widget.NewHyperlink("GitHub: https://github.com/miutaku/wol-relay", repoURL),
 	)
 	tabs := container.NewAppTabs(
@@ -419,16 +463,25 @@ func checkLabel(check config.CheckConfig) string {
 	return fmt.Sprintf("確認: %s/%d", check.Method, port)
 }
 
-func sampled(label string, sample string, description string, object fyne.CanvasObject) fyne.CanvasObject {
-	return fieldCard(label, "例: "+sample+"\n"+description, object)
+func sampled(label string, _ string, description string, object fyne.CanvasObject) fyne.CanvasObject {
+	return fieldCard(label, description, object)
 }
 
 func sectionCard(title string, objects ...fyne.CanvasObject) fyne.CanvasObject {
-	return widget.NewCard(title, "", container.NewVBox(objects...))
+	items := make([]fyne.CanvasObject, 0, len(objects)*2)
+	for i, obj := range objects {
+		if i > 0 {
+			items = append(items, widget.NewSeparator())
+		}
+		items = append(items, obj)
+	}
+	return widget.NewCard(title, "", container.NewVBox(items...))
 }
 
 func fieldCard(title string, description string, object fyne.CanvasObject) fyne.CanvasObject {
-	return widget.NewCard(title, description, object)
+	label := widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	desc := helpText(description)
+	return container.NewVBox(label, desc, object)
 }
 
 func helpText(value string) *widget.Label {
