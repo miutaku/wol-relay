@@ -2,12 +2,21 @@
 
 package nativegui
 
-import "golang.org/x/sys/windows"
+import "syscall"
+
+var (
+	kernel32             = syscall.NewLazyDLL("kernel32.dll")
+	user32               = syscall.NewLazyDLL("user32.dll")
+	procGetConsoleWindow = kernel32.NewProc("GetConsoleWindow")
+	procShowWindow       = user32.NewProc("ShowWindow")
+)
 
 func init() {
 	// Dev builds without -H=windowsgui allocate a console window.
 	// Minimize it so the tray app starts without a visible console.
-	if hwnd := windows.GetConsoleWindow(); hwnd != 0 {
-		windows.ShowWindow(hwnd, windows.SW_SHOWMINNOACTIVE)
+	hwnd, _, _ := procGetConsoleWindow.Call()
+	if hwnd != 0 {
+		const swShowMinNoActive = 7
+		procShowWindow.Call(hwnd, swShowMinNoActive)
 	}
 }
