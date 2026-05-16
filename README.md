@@ -18,50 +18,76 @@ Agent は、 マジックパケットの送信を検知すると、
 
 ## マジックパケットが到達する仕組み
 
-Wake on LAN のマジックパケットは、通常 UDP のブロードキャストとして同一 L2 セグメント内に送信されます。送信元 PC にインストールされた wol-relay Agent は、その PC 上で Wake 操作を受け取り、必要に応じて同じセグメント内の対象ホストへマジックパケットを送信します。
+### 通常のWake on LAN
+Wake on LAN に使われるマジックパケットは、通常 UDP のブロードキャストとして同一 L2 セグメント内に送信されます。
 
-また、外部の Wake on LAN ツールから送られたマジックパケットを検知する用途として、wol-relay Agent は `listen_magic` で指定された UDP アドレスを待ち受けます。例えば `":9"` を指定すると、Agent は UDP port 9 に届いたパケットを読み取り、その内容が Wake on LAN のマジックパケット形式かどうかを検査します。
+別セグメントには、通常このブロードキャストは届きません。
 
 ```mermaid
 flowchart LR
-  subgraph segmentA["同一L2セグメント"]
-    subgraph pcA["送信元PC"]
-      sender["Wake操作"]
-      agentA["wol-relay Agent<br/>PCにインストール"]
+  subgraph segmentSourceA["送信元セグメント（192.168.0.0/24）"]
+    subgraph pcA["送信元PC<br/>（192.168.10.10）"]
     end
-    targetA["対象ホスト"]
   end
 
-  sender -- "起動要求" --> agentA
-  agentA -- "UDP broadcast<br/>Magic Packet" --> targetA
-  agentA -- "形式検査<br/>登録済みMACか確認" --> agentA
-  agentA -. "listen_magic 利用時は<br/>既存パケットの検知も可能" .-> agentA
-```
+  router["ルーター"]
 
-ルーターを越えた別セグメントには、通常このブロードキャストは届きません。そのため、別セグメントの対象ホストを起こす場合は、送信元 PC にインストールされた Agent が Wake 操作を受け取り、対象ホストと同じセグメントにいる Agent へ REST API で依頼します。依頼を受けた Agent が、そのセグメント内で改めてマジックパケットを送信します。
-
-```mermaid
-flowchart LR
-  subgraph segmentSource["送信元セグメント"]
-    subgraph sourcePC["送信元PC"]
+  subgraph segmentTargetB["対象ホスト側セグメント（192.168.0.0/24）"]
+    subgraph pcB["送信元PC （192.168.10.10）"]
       senderB["Wake操作"]
-      sourceAgent["wol-relay Agent<br/>PCにインストール"]
+    end
+    targetB["対象ホスト<br/>（192.168.0.100）"]
+  end
+
+  pcA -."ブロードキャストパケットは通常だと越えられない".- router -.-> targetB
+  pcB -- "UDP broadcast<br/>Magic Packet" --> targetB
+  router ~~~ segmentTargetB
+```
+
+### wol-relayでのWake on LAN
+
+wol-relayでは、別セグメントの対象ホストを起こす場合は、
+1. 送信元 PC にインストールされた Agent が Wake 操作を受け取り、
+2. 対象ホストと同じセグメントにいる中継ノードとして稼働している Agent へ REST API で依頼し、
+3. REST APIを受けた Agent が、そのセグメント内で改めてマジックパケットを送信します。
+
+送信元 PC にインストールされた wol-relay Agent は、その PC 上で Wake 操作を受け取り、必要に応じて同じセグメント内の対象ホストへマジックパケットを送信します。
+また、Wake on LAN ツールから送られたマジックパケットを検知することを目的に、wol-relay Agent は `listen_magic` で指定された UDP アドレスを待ち受け、
+Agent は UDP port 9 に届いたパケットを読み取り、その内容が Wake on LAN のマジックパケット形式かどうかを検査します。
+
+実装上は、登録済みホストの MAC アドレスだけをリレー対象にします。未登録の MAC アドレス宛てマジックパケットは無視します。
+また、マジックパケットがすでに対象ホストと同じセグメントへ届いていると判断できる場合、Agent は再送せず、検知だけを行います。
+
+```mermaid
+flowchart LR
+  subgraph segmentA["同一L2セグメント（192.168.0.0/24）"]
+    subgraph pcA["送信元PC（192.168.0.10）"]
+      senderA["Wake操作"]
+      agentA["wol-relay Agent<br/>PCにインストール"]
+      agentA_Skip{{"送信しない"}}
+    end
+    targetA["対象ホスト<br/>（192.168.0.100）"]
+    subgraph relayNode["中継ノード（192.168.0.200）"]
+      relayAgentA["wol-relay Agent<br/>中継ノードにインストール"]
+      end
+    end
+  router["ルーター"]
+  subgraph segmentB["別L2セグメント（192.168.10.0/24）"]
+    subgraph pcB["送信元PC （192.168.10.10）"]
+      senderB["Wake操作"]
+      agentB["wol-relay Agent<br/>PCにインストール"]
+      senderB_Ignore{{"別セグメントには到達不可"}}
     end
   end
 
-  router["ルーター<br/>通常ブロードキャストは越えない"]
-
-  subgraph segmentTarget["対象ホスト側セグメント"]
-    targetAgent["対象側 wol-relay Agent"]
-    targetB["対象ホスト"]
-  end
-
-  senderB -- "起動要求" --> sourceAgent
-  sourceAgent -. "UDP broadcast は通常ここで止まる" .-> router
-  sourceAgent -- "REST API<br/>HMAC署名付き wake 要求" --> targetAgent
-  targetAgent -- "UDP broadcast<br/>Magic Packet" --> targetB
-  targetAgent -- "TCP / ICMP<br/>オンライン確認 optional" --> targetB
+  agentA -- "検知" --> senderA
+  senderA -- "UDP broadcast<br/>Magic Packet" --> targetA
+  agentA -. "REST API" .-> agentA_Skip
+  agentB -- "REST API" --- router ---> relayAgentA --"UDP broadcast<br/>Magic Packet"--> targetA
+  agentB -- "検知" --> senderB
+  senderB -. "UDP broadcast<br/>Magic Packet" .-> senderB_Ignore
 ```
+
 
 処理の時系列は次の通りです。
 
@@ -86,9 +112,9 @@ sequenceDiagram
   end
 ```
 
-実装上は、登録済みホストの MAC アドレスだけをリレー対象にします。未登録の MAC アドレス宛てマジックパケットは無視します。また、マジックパケットがすでに対象ホストと同じセグメントへ届いていると判断できる場合、Agent は再送せず、検知だけを行います。
 
-`allowed_magic_sources` を設定すると、マジックパケットを受け付ける送信元 IP アドレスまたは CIDR を制限できます。OS や Firewall が UDP 待ち受けを遮断している場合、Agent までパケットが届かないため、必要に応じて `wol-relay firewall` で受信許可コマンドを確認してください。
+後述の `allowed_magic_sources` を設定すると、マジックパケットを受け付ける送信元 IP アドレスまたは CIDR を制限できます。
+OS の Firewall が UDP 待ち受けを遮断している場合、Agent までパケットが届かないため、必要に応じて `wol-relay firewall` で受信許可コマンドを確認してください。
 
 ## 対応する環境
 
@@ -110,14 +136,14 @@ sequenceDiagram
 
 以下の機能をサポートします。
 
-### ポップアップ通知
+### イベント通知
 
 - マジックパケットを、他の Agent ノードに送り付けたとき
 - Wake on LAN が成功したかしていないか
 
 ### セキュリティ
 
-- 非常にセキュアな認証機能によって、各 Agent が安全に通信可能なオプション
+- セキュアな認証によって、各 Agent が安全に通信可能なオプション
 - 送信元と送信先をある程度制限するオプション
 
 ### 軽量モード
