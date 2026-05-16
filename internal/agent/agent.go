@@ -32,6 +32,9 @@ type Agent struct {
 	client   *http.Client
 	notifier notify.Notifier
 	mu       sync.RWMutex
+
+	burstMu  sync.Mutex
+	burstMap map[string]*magicBurst
 }
 
 type WakeResult struct {
@@ -219,7 +222,15 @@ func (a *Agent) wakeHost(ctx context.Context, host config.HostConfig, source str
 		return WakeResult{}, err
 	}
 	res.Relayed = true
-	a.notify("Wake on LAN relayed", res.Message)
+	if source == SourceMagic {
+		// Notification for "sent" is handled by the burst debounce timer.
+		// Only notify on definitive failure so the user sees one error at the end.
+		if !res.Online {
+			a.notify("Wake on LAN not confirmed", res.Message)
+		}
+	} else {
+		a.notify("Wake on LAN relayed", res.Message)
+	}
 	return res, nil
 }
 
@@ -413,6 +424,39 @@ func (a *Agent) magicSourceAllowed(remote *net.UDPAddr) bool {
 	return false
 }
 
+const magicDebounceWindow = 30 * time.Second
+
+type magicBurst struct {
+	timer *time.Timer
+	count int
+}
+
+// trackMagicBurst records a magic packet for the given MAC and returns whether
+// this is the first packet in the current burst window (i.e. should wake).
+// On the first call for a MAC, a 30-second timer is started; when it fires,
+// notifyFn is called with the total packet count for that burst.
+func (a *Agent) trackMagicBurst(mac string, notifyFn func(count int)) (first bool) {
+	a.burstMu.Lock()
+	defer a.burstMu.Unlock()
+	if a.burstMap == nil {
+		a.burstMap = make(map[string]*magicBurst)
+	}
+	if b, exists := a.burstMap[mac]; exists {
+		b.count++
+		return false
+	}
+	b := &magicBurst{count: 1}
+	b.timer = time.AfterFunc(magicDebounceWindow, func() {
+		a.burstMu.Lock()
+		count := a.burstMap[mac].count
+		delete(a.burstMap, mac)
+		a.burstMu.Unlock()
+		notifyFn(count)
+	})
+	a.burstMap[mac] = b
+	return true
+}
+
 func (a *Agent) handleDetectedMagic(ctx context.Context, remote net.Addr, hw net.HardwareAddr) {
 	cfg := a.Config()
 	host, known := cfg.FindHost(hw.String())
@@ -422,15 +466,34 @@ func (a *Agent) handleDetectedMagic(ctx context.Context, remote net.Addr, hw net
 	}
 	if a.shouldWakeLocally(host) {
 		log.Printf("detected local magic packet from %s for %s; no relay needed", remote, hw)
-		a.notify("Wake on LANを検知しました", fmt.Sprintf("%s 宛てのマジックパケットは、すでにこのLANに届いています。リレーは不要です。", displayHost(host)))
+		a.trackMagicBurst(hw.String(), func(count int) {
+			msg := fmt.Sprintf("%s 宛てのマジックパケットは、すでにこのLANに届いています。リレーは不要です。", displayHost(host))
+			if count > 1 {
+				msg += fmt.Sprintf(" (%d件検知)", count)
+			}
+			a.notify("Wake on LANを検知しました", msg)
+		})
 		return
 	}
-	res, err := a.wakeHost(ctx, host, SourceMagic)
-	if err != nil {
-		log.Printf("failed to handle magic packet from %s for %s: %v", remote, hw, err)
+	first := a.trackMagicBurst(hw.String(), func(count int) {
+		msg := fmt.Sprintf("%s へのリレーを送信しました。", displayHost(host))
+		if count > 1 {
+			msg += fmt.Sprintf(" (%d件のパケットを集約)", count)
+		}
+		a.notify("Wake on LAN 送信", msg)
+	})
+	if !first {
+		log.Printf("burst: additional magic packet from %s for %s", remote, hw)
 		return
 	}
-	log.Printf("handled magic packet from %s for %s: %s", remote, hw, res.Message)
+	go func() {
+		res, err := a.wakeHost(ctx, host, SourceMagic)
+		if err != nil {
+			log.Printf("failed to handle magic packet from %s for %s: %v", remote, hw, err)
+			return
+		}
+		log.Printf("handled magic packet from %s for %s: %s", remote, hw, res.Message)
+	}()
 }
 
 type callerNodeKey struct{}
