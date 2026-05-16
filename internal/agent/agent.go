@@ -328,7 +328,8 @@ func (a *Agent) handleWake(w http.ResponseWriter, req *http.Request) {
 			host = mergeHost(knownHost, host)
 			known = true
 		}
-	} else if payload.MAC != "" {
+	}
+	if !known && payload.MAC != "" {
 		if knownHost, ok := cfg.FindHost(payload.MAC); ok {
 			host = mergeHost(knownHost, host)
 			known = true
