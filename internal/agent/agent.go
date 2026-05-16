@@ -272,7 +272,13 @@ func (a *Agent) relayWake(ctx context.Context, relay string, host config.HostCon
 	req.Header.Set("Content-Type", "application/json")
 	signRequest(req, cfg.NodeName, cfg.Auth.SharedSecret, body)
 
-	resp, err := a.client.Do(req)
+	client := a.client
+	if host.Check.Enabled && host.Check.Timeout != "" {
+		if checkTimeout, err := time.ParseDuration(host.Check.Timeout); err == nil {
+			client = &http.Client{Timeout: checkTimeout + 15*time.Second}
+		}
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return WakeResult{}, err
 	}
