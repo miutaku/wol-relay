@@ -19,7 +19,7 @@ $ sudo tailscale up
 ```shell
 $ wget https://github.com/miutaku/wol-relay/releases/download/v0.0.12/wol-relay_0.0.12_linux_armv6-headless.deb
 $ sudo apt install ./wol-relay_0.0.12_linux_armv6-headless.deb -y
-$ sudo vim /etc/wol-relay/wol-relay.conf
+$ sudo vim /etc/wol-relay/wol-relay.json
 $ sudo systemctl enable --now wol-relay 
 ```
 
