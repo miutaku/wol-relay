@@ -445,7 +445,6 @@ func Run(ctx context.Context, opts Options) error {
 	header := container.NewBorder(nil, nil, container.NewHBox(widget.NewIcon(theme.ComputerIcon()), appTitle), container.NewHBox(nodeLabel, minimizeButton))
 	repoURL, _ := url.Parse("https://github.com/miutaku/wol-relay")
 	intro := sectionBanner(
-		theme.InfoIcon(),
 		widget.NewLabelWithStyle("Wake on LAN をルーターを越えて安全に届けます", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		helpText("Wake on LAN（WoL）は電源オフのPCをネットワーク経由で起こす仕組みですが、通常はルーターを越えられません。wol-relay は、別のLAN（ルーターの向こう側）にいるPCへもWake on LAN信号を届けるための中継アプリです。"),
 		widget.NewHyperlink("GitHub: https://github.com/miutaku/wol-relay", repoURL),
@@ -454,7 +453,7 @@ func Run(ctx context.Context, opts Options) error {
 	hostsTab := container.NewTabItemWithIcon("ホスト", theme.ComputerIcon(), container.NewVScroll(container.NewPadded(container.NewVBox(hostForm, sectionCard("登録済みホスト", list)))))
 	tabs := container.NewAppTabs(settingsTab, hostsTab)
 	tabs.SetTabLocation(container.TabLocationLeading)
-	statusBar := container.NewPadded(container.NewBorder(nil, nil, widget.NewIcon(theme.InfoIcon()), nil, status))
+	statusBar := container.NewPadded(status)
 	content := container.NewBorder(container.NewPadded(container.NewVBox(header, intro)), statusBar, nil, nil, tabs)
 	window.SetContent(content)
 	refresh()
@@ -547,8 +546,8 @@ func pageHeading(icon fyne.Resource, title, description string) fyne.CanvasObjec
 	return container.NewPadded(container.NewBorder(nil, nil, widget.NewIcon(icon), nil, container.NewVBox(titleLabel, helpText(description))))
 }
 
-func sectionBanner(icon fyne.Resource, objects ...fyne.CanvasObject) fyne.CanvasObject {
-	content := container.NewPadded(container.NewBorder(nil, nil, widget.NewIcon(icon), nil, container.NewVBox(objects...)))
+func sectionBanner(objects ...fyne.CanvasObject) fyne.CanvasObject {
+	content := container.NewPadded(container.NewVBox(objects...))
 	return container.NewVBox(content, widget.NewSeparator())
 }
 

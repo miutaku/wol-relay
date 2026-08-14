@@ -61,7 +61,7 @@ func Run(args []string, version string) error {
 			return err
 		}
 		configPath := fs.String("config", defaultPath, "path to config file")
-		minimized := fs.Bool("minimized", false, "start hidden in the system tray")
+		minimized := fs.Bool("minimized", true, "start hidden in the system tray")
 		if err := fs.Parse(args[2:]); err != nil {
 			return err
 		}
@@ -144,7 +144,7 @@ func runGUI(configPath string) error {
 		}
 		configPath = defaultPath
 	}
-	return runGUIWithOptions(configPath, false)
+	return runGUIWithOptions(configPath, true)
 }
 
 func runGUIWithOptions(configPath string, startHidden bool) error {

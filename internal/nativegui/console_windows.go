@@ -13,10 +13,10 @@ var (
 
 func init() {
 	// Dev builds without -H=windowsgui allocate a console window.
-	// Minimize it so the tray app starts without a visible console.
+	// Hide it completely so it does not leave a minimized taskbar button.
 	hwnd, _, _ := procGetConsoleWindow.Call()
 	if hwnd != 0 {
-		const swShowMinNoActive = 7
-		procShowWindow.Call(hwnd, swShowMinNoActive)
+		const swHide = 0
+		procShowWindow.Call(hwnd, swHide)
 	}
 }
