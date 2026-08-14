@@ -52,7 +52,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version: "1.26.x"
           cache: true
 
       - name: Set up .NET
@@ -183,7 +183,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version: "1.26.x"
           cache: true
 
       - name: Install nFPM
@@ -258,7 +258,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version: "1.26.x"
           cache: true
 
       - name: Resolve version

@@ -6,7 +6,7 @@ import (
 	"github.com/miutaku/wol-relay/internal/app"
 )
 
-const version = "0.0.13"
+const version = "0.0.14"
 
 func main() {
 	os.Exit(app.Main(os.Args, version))
