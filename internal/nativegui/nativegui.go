@@ -14,6 +14,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	fyneapp "fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/theme"
@@ -35,7 +36,7 @@ func Run(ctx context.Context, opts Options) error {
 	app := fyneapp.NewWithID("com.github.miutaku.wol-relay")
 	app.SetIcon(theme.ComputerIcon())
 	window := app.NewWindow("wol-relay")
-	window.Resize(fyne.NewSize(760, 560))
+	window.Resize(fyne.NewSize(920, 700))
 
 	status := widget.NewLabel("")
 	status.Wrapping = fyne.TextWrapWord
@@ -114,11 +115,23 @@ func Run(ctx context.Context, opts Options) error {
 	checkInterval := widget.NewEntry()
 	checkInterval.SetPlaceHolder("例: 3s")
 	checkInterval.SetText("3s")
+
+	// A regular Fyne Entry contains its own horizontal scroller. It captures the
+	// mouse wheel even when there is nothing useful to scroll, preventing the
+	// surrounding settings page from moving. These fields are all single-line,
+	// so render them without an inner scroller and let the page receive the wheel.
+	makeEntriesPageScrollable(
+		nodeName, listenHTTP, listenMagic, allowedMagicSources, defaultRelay, defaultTarget, sharedSecret,
+		hostName, hostMAC, hostIP, hostBroadcast, hostRelay, hostAllowedBy, checkPort, checkTimeout, checkInterval,
+	)
 	hostFormTitle := widget.NewLabelWithStyle("ホスト追加", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	hostSaveButton := widget.NewButton("追加", nil)
+	hostSaveButton.Icon = theme.ContentAddIcon()
+	hostSaveButton.Importance = widget.HighImportance
 	cancelHostEditButton := widget.NewButton("編集をキャンセル", nil)
+	cancelHostEditButton.Icon = theme.CancelIcon()
 	cancelHostEditButton.Hide()
-	openConfigButton := widget.NewButton("設定ファイルのフォルダを開く", func() {
+	openConfigButton := widget.NewButtonWithIcon("設定ファイルのフォルダを開く", theme.FolderOpenIcon(), func() {
 		if opts.ConfigPath == "" {
 			status.SetText("設定ファイルの場所がわかりません。")
 			return
@@ -210,10 +223,11 @@ func Run(ctx context.Context, opts Options) error {
 					})
 				}()
 			})
-			editButton := widget.NewButton("編集", func() {
+			wakeButton.Icon = theme.MediaPlayIcon()
+			editButton := widget.NewButtonWithIcon("編集", theme.DocumentCreateIcon(), func() {
 				loadHostForm(host)
 			})
-			deleteButton := widget.NewButton("削除", func() {
+			deleteButton := widget.NewButtonWithIcon("削除", theme.DeleteIcon(), func() {
 				cfg, ok := opts.Agent.DeleteHost(title)
 				if !ok {
 					status.SetText("削除対象が見つかりません。")
@@ -231,6 +245,7 @@ func Run(ctx context.Context, opts Options) error {
 				}
 				refresh()
 			})
+			deleteButton.Importance = widget.DangerImportance
 			list.Add(widget.NewCard(title, meta, container.NewHBox(wakeButton, editButton, deleteButton)))
 		}
 		list.Refresh()
@@ -264,6 +279,8 @@ func Run(ctx context.Context, opts Options) error {
 		syncSettings()
 		status.SetText("全体設定を保存しました。待ち受けアドレスの変更は次回起動から反映されます。")
 	})
+	saveSettingsButton.Icon = theme.DocumentSaveIcon()
+	saveSettingsButton.Importance = widget.HighImportance
 
 	cancelHostEditButton.OnTapped = func() {
 		clearHostForm()
@@ -323,8 +340,7 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	settingsForm := container.NewVBox(
-		widget.NewLabelWithStyle("全体設定", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		helpText("このPCで動く wol-relay 全体の設定です。初めて使う場合、多くの項目は初期値のままで問題ありません。"),
+		pageHeading(theme.SettingsIcon(), "全体設定", "このPCで動く Agent の受信・転送・セキュリティを設定します。初めて使う場合、多くの項目は初期値のままで問題ありません。"),
 		sectionCard("このPCの基本情報",
 			sampled("このPCの名前", "desktop",
 				"このwol-relayを識別する名前です。「living-room-pc」「laptop」など、わかりやすい英数字の名前をつけてください。ホスト設定の「許可する送信元Agent名」でこの名前を使います。",
@@ -375,8 +391,8 @@ func Run(ctx context.Context, opts Options) error {
 	)
 
 	hostForm := container.NewVBox(
+		pageHeading(theme.ComputerIcon(), "ホストを登録", "同じLAN内なら名前とMACアドレスだけで始められます。別LANの場合は中継先も指定してください。"),
 		hostFormTitle,
-		helpText("起こしたいPCやサーバーを登録します。同じLAN内のPCなら名前とMACアドレスだけで始められます。別のLAN（ルーターの向こう側）のPCを起こす場合は、送信先のwol-relay URLも指定してください。"),
 		sectionCard("起こしたいPCの情報",
 			sampled("表示名", "nas",
 				"このアプリ内での表示名です。「gaming-pc」「nas」など、わかりやすい名前をつけてください。Wakeボタンや一覧に表示されます。",
@@ -425,19 +441,21 @@ func Run(ctx context.Context, opts Options) error {
 		window.Hide()
 	}
 	minimizeButton := widget.NewButtonWithIcon("インジケーターに最小化", theme.MoveDownIcon(), hideWindow)
-	header := container.NewBorder(nil, nil, widget.NewLabel("wol-relay"), container.NewHBox(nodeLabel, minimizeButton))
+	appTitle := widget.NewLabelWithStyle("wol-relay", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	header := container.NewBorder(nil, nil, container.NewHBox(widget.NewIcon(theme.ComputerIcon()), appTitle), container.NewHBox(nodeLabel, minimizeButton))
 	repoURL, _ := url.Parse("https://github.com/miutaku/wol-relay")
-	intro := container.NewVBox(
+	intro := sectionBanner(
+		theme.InfoIcon(),
 		widget.NewLabelWithStyle("Wake on LAN をルーターを越えて安全に届けます", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		helpText("Wake on LAN（WoL）は電源オフのPCをネットワーク経由で起こす仕組みですが、通常はルーターを越えられません。wol-relay は、別のLAN（ルーターの向こう側）にいるPCへもWake on LAN信号を届けるための中継アプリです。"),
-		helpText("このPCが受け取ったWake信号を、あらかじめ許可した相手のwol-relayへ転送します。転送は署名付きで行われるため、許可していない相手からの起動を防げます。"),
 		widget.NewHyperlink("GitHub: https://github.com/miutaku/wol-relay", repoURL),
 	)
-	tabs := container.NewAppTabs(
-		container.NewTabItem("全体設定", container.NewVScroll(settingsForm)),
-		container.NewTabItem("ホスト", container.NewVScroll(container.NewVBox(hostForm, list))),
-	)
-	content := container.NewBorder(container.NewVBox(header, intro), status, nil, nil, tabs)
+	settingsTab := container.NewTabItemWithIcon("全体設定", theme.SettingsIcon(), container.NewVScroll(container.NewPadded(settingsForm)))
+	hostsTab := container.NewTabItemWithIcon("ホスト", theme.ComputerIcon(), container.NewVScroll(container.NewPadded(container.NewVBox(hostForm, sectionCard("登録済みホスト", list)))))
+	tabs := container.NewAppTabs(settingsTab, hostsTab)
+	tabs.SetTabLocation(container.TabLocationLeading)
+	statusBar := container.NewPadded(container.NewBorder(nil, nil, widget.NewIcon(theme.InfoIcon()), nil, status))
+	content := container.NewBorder(container.NewPadded(container.NewVBox(header, intro)), statusBar, nil, nil, tabs)
 	window.SetContent(content)
 	refresh()
 
@@ -501,20 +519,65 @@ func sampled(label string, _ string, description string, object fyne.CanvasObjec
 }
 
 func sectionCard(title string, objects ...fyne.CanvasObject) fyne.CanvasObject {
-	items := make([]fyne.CanvasObject, 0, len(objects)*2)
+	items := make([]fyne.CanvasObject, 0, len(objects)*2+1)
 	for i, obj := range objects {
 		if i > 0 {
 			items = append(items, widget.NewSeparator())
 		}
 		items = append(items, obj)
 	}
-	return widget.NewCard(title, "", container.NewVBox(items...))
+	header := container.NewHBox(widget.NewIcon(sectionIcon(title)), widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+	body := container.NewPadded(container.NewVBox(items...))
+	card := container.NewBorder(container.NewPadded(header), nil, nil, nil, body)
+	background := canvas.NewRectangle(theme.Color(theme.ColorNameBackground))
+	background.CornerRadius = theme.Size(theme.SizeNameInputRadius)
+	background.StrokeColor = theme.Color(theme.ColorNameSeparator)
+	background.StrokeWidth = 1
+	return container.NewStack(background, card)
 }
 
 func fieldCard(title string, description string, object fyne.CanvasObject) fyne.CanvasObject {
 	label := widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	desc := helpText(description)
-	return container.NewVBox(label, desc, object)
+	return container.NewPadded(container.NewVBox(label, desc, object))
+}
+
+func pageHeading(icon fyne.Resource, title, description string) fyne.CanvasObject {
+	titleLabel := widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	return container.NewPadded(container.NewBorder(nil, nil, widget.NewIcon(icon), nil, container.NewVBox(titleLabel, helpText(description))))
+}
+
+func sectionBanner(icon fyne.Resource, objects ...fyne.CanvasObject) fyne.CanvasObject {
+	content := container.NewPadded(container.NewBorder(nil, nil, widget.NewIcon(icon), nil, container.NewVBox(objects...)))
+	return container.NewVBox(content, widget.NewSeparator())
+}
+
+func sectionIcon(title string) fyne.Resource {
+	switch title {
+	case "このPCの基本情報":
+		return theme.DesktopIcon()
+	case "Wake on LAN信号の検知":
+		return theme.DownloadIcon()
+	case "Wake信号の標準送り先", "Wake信号の送り先":
+		return theme.UploadIcon()
+	case "セキュリティと通知の設定":
+		return theme.SettingsIcon()
+	case "設定ファイル":
+		return theme.FolderOpenIcon()
+	case "起こしたいPCの情報", "登録済みホスト":
+		return theme.ComputerIcon()
+	case "起動確認":
+		return theme.SearchIcon()
+	default:
+		return theme.InfoIcon()
+	}
+}
+
+func makeEntriesPageScrollable(entries ...*widget.Entry) {
+	for _, entry := range entries {
+		entry.Wrapping = fyne.TextWrapOff
+		entry.Scroll = container.ScrollNone
+	}
 }
 
 func helpText(value string) *widget.Label {
