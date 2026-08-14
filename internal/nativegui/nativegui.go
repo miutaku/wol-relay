@@ -30,6 +30,7 @@ type Options struct {
 	ConfigPath  string
 	AgentErrors <-chan error
 	StartHidden bool
+	Version     string
 }
 
 func Run(ctx context.Context, opts Options) error {
@@ -442,7 +443,8 @@ func Run(ctx context.Context, opts Options) error {
 	}
 	minimizeButton := widget.NewButtonWithIcon("インジケーターに最小化", theme.MoveDownIcon(), hideWindow)
 	appTitle := widget.NewLabelWithStyle("wol-relay", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	header := container.NewBorder(nil, nil, container.NewHBox(widget.NewIcon(theme.ComputerIcon()), appTitle), container.NewHBox(nodeLabel, minimizeButton))
+	versionLabel := widget.NewLabel("v" + opts.Version)
+	header := container.NewBorder(nil, nil, container.NewHBox(widget.NewIcon(theme.ComputerIcon()), appTitle, versionLabel), container.NewHBox(nodeLabel, minimizeButton))
 	repoURL, _ := url.Parse("https://github.com/miutaku/wol-relay")
 	intro := sectionBanner(
 		widget.NewLabelWithStyle("Wake on LAN をルーターを越えて安全に届けます", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
@@ -467,7 +469,9 @@ func Run(ctx context.Context, opts Options) error {
 		hideItem.Icon = theme.MoveDownIcon()
 		quitItem := fyne.NewMenuItem("終了", app.Quit)
 		quitItem.IsQuit = true
-		desktopApp.SetSystemTrayMenu(fyne.NewMenu("wol-relay", showItem, hideItem, fyne.NewMenuItemSeparator(), quitItem))
+		versionItem := fyne.NewMenuItem("バージョン "+opts.Version, nil)
+		versionItem.Disabled = true
+		desktopApp.SetSystemTrayMenu(fyne.NewMenu("wol-relay", showItem, hideItem, fyne.NewMenuItemSeparator(), versionItem, quitItem))
 		desktopApp.SetSystemTrayIcon(theme.ComputerIcon())
 		desktopApp.SetSystemTrayWindow(window)
 	} else {

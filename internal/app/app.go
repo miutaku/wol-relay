@@ -30,7 +30,7 @@ func Main(args []string, version string) int {
 
 func Run(args []string, version string) error {
 	if len(args) < 2 {
-		return runGUI("")
+		return runGUI("", version)
 	}
 
 	switch args[1] {
@@ -65,7 +65,7 @@ func Run(args []string, version string) error {
 		if err := fs.Parse(args[2:]); err != nil {
 			return err
 		}
-		return runGUIWithOptions(*configPath, *minimized)
+		return runGUIWithOptions(*configPath, *minimized, version)
 	case "wake":
 		fs := flag.NewFlagSet("wake", flag.ExitOnError)
 		configPath := fs.String("config", "wol-relay.json", "path to config file")
@@ -136,7 +136,7 @@ func Run(args []string, version string) error {
 	}
 }
 
-func runGUI(configPath string) error {
+func runGUI(configPath, version string) error {
 	if configPath == "" {
 		defaultPath, err := config.DefaultPath()
 		if err != nil {
@@ -144,10 +144,10 @@ func runGUI(configPath string) error {
 		}
 		configPath = defaultPath
 	}
-	return runGUIWithOptions(configPath, true)
+	return runGUIWithOptions(configPath, true, version)
 }
 
-func runGUIWithOptions(configPath string, startHidden bool) error {
+func runGUIWithOptions(configPath string, startHidden bool, version string) error {
 	cfg, err := config.LoadOrCreate(configPath)
 	if err != nil {
 		return err
@@ -163,7 +163,7 @@ func runGUIWithOptions(configPath string, startHidden bool) error {
 			agentErrCh <- err
 		}
 	}()
-	err = nativegui.Run(ctx, nativegui.Options{Agent: app, ConfigPath: configPath, AgentErrors: agentErrCh, StartHidden: startHidden})
+	err = nativegui.Run(ctx, nativegui.Options{Agent: app, ConfigPath: configPath, AgentErrors: agentErrCh, StartHidden: startHidden, Version: version})
 	stop()
 	return err
 }

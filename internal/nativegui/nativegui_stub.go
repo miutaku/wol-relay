@@ -14,6 +14,7 @@ type Options struct {
 	ConfigPath  string
 	AgentErrors <-chan error
 	StartHidden bool
+	Version     string
 }
 
 func Run(ctx context.Context, opts Options) error {

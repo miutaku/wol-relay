@@ -143,7 +143,11 @@ jobs:
           $env:GOARCH = "${{ matrix.goarch }}"
           $env:CGO_ENABLED = "1"
           $env:CC = "${{ matrix.cc }}"
-          go build -tags nativegui -ldflags="-H=windowsgui" -o dist\velopack-input\wol-relay.exe .\cmd\wol-relay
+          go build -tags nativegui -ldflags="-H=windowsgui -extldflags=-Wl,--subsystem,windows" -o dist\velopack-input\wol-relay.exe .\cmd\wol-relay
+          $bytes = [IO.File]::ReadAllBytes("dist\velopack-input\wol-relay.exe")
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3c)
+          $subsystem = [BitConverter]::ToUInt16($bytes, $peOffset + 24 + 68)
+          if ($subsystem -ne 2) { throw "wol-relay.exe is not a Windows GUI executable (PE subsystem=$subsystem)" }
 
       - name: Validate Velopack package
         shell: pwsh

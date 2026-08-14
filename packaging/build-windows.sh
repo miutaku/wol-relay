@@ -14,7 +14,7 @@ export GOMAXPROCS="$PARALLELISM"
 
 echo "Building with parallelism=${PARALLELISM}"
 
-go build -p "$PARALLELISM" -tags nativegui -ldflags="-H=windowsgui" -o "$OUT_DIR/wol-relay.exe" ./cmd/wol-relay
+go build -p "$PARALLELISM" -tags nativegui -ldflags="-H=windowsgui -extldflags=-Wl,--subsystem,windows" -o "$OUT_DIR/wol-relay.exe" ./cmd/wol-relay
 
 echo "Built:"
 echo "  $OUT_DIR/wol-relay.exe"
