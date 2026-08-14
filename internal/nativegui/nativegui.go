@@ -528,10 +528,12 @@ func sectionCard(title string, objects ...fyne.CanvasObject) fyne.CanvasObject {
 	header := container.NewHBox(widget.NewIcon(sectionIcon(title)), widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
 	body := container.NewPadded(container.NewVBox(items...))
 	card := container.NewBorder(container.NewPadded(header), nil, nil, nil, body)
-	background := canvas.NewRectangle(theme.Color(theme.ColorNameBackground))
+	// Use a neutral raised surface and a stronger neutral border. This keeps the
+	// palette restrained while making each settings group distinct in both themes.
+	background := canvas.NewRectangle(theme.Color(theme.ColorNameInputBackground))
 	background.CornerRadius = theme.Size(theme.SizeNameInputRadius)
-	background.StrokeColor = theme.Color(theme.ColorNameSeparator)
-	background.StrokeWidth = 1
+	background.StrokeColor = theme.Color(theme.ColorNameInputBorder)
+	background.StrokeWidth = 1.5
 	return container.NewStack(background, card)
 }
 
