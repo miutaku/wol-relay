@@ -35,17 +35,17 @@ $ sudo systemctl enable --now wol-relay
 自分で、以下を手作業でやる方法。
 
 ```shell
-# オーバーレイ無効化 + /boot RW 化
+# オーバーレイ無効化
 sudo raspi-config nonint disable_overlayfs
-sudo raspi-config nonint disable_bootro
+#sudo raspi-config nonint disable_bootro # /bootをRW化する場合 (通常不要)
 sudo reboot
 
 # アプデ
 sudo apt update && sudo apt upgrade -y 
 
-# 再度オーバーレイ有効化 + /boot RO化
+# 再度オーバーレイ有効化
 sudo raspi-config nonint enable_overlayfs
-sudo raspi-config nonint enable_bootro
+#sudo raspi-config nonint enable_bootro # /bootをRO化する場合 (通常不要)
 sudo reboot
 ```
 

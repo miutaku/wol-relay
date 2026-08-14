@@ -52,7 +52,7 @@ func enable(configPath string) error {
 		return err
 	}
 	defer key.Close()
-	args := []string{exe, "gui"}
+	args := []string{exe, "gui", "-minimized"}
 	if configPath != "" {
 		args = append(args, "-config", configPath)
 	}

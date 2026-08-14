@@ -61,10 +61,11 @@ func Run(args []string, version string) error {
 			return err
 		}
 		configPath := fs.String("config", defaultPath, "path to config file")
+		minimized := fs.Bool("minimized", false, "start hidden in the system tray")
 		if err := fs.Parse(args[2:]); err != nil {
 			return err
 		}
-		return runGUIWithOptions(*configPath)
+		return runGUIWithOptions(*configPath, *minimized)
 	case "wake":
 		fs := flag.NewFlagSet("wake", flag.ExitOnError)
 		configPath := fs.String("config", "wol-relay.json", "path to config file")
@@ -143,10 +144,10 @@ func runGUI(configPath string) error {
 		}
 		configPath = defaultPath
 	}
-	return runGUIWithOptions(configPath)
+	return runGUIWithOptions(configPath, false)
 }
 
-func runGUIWithOptions(configPath string) error {
+func runGUIWithOptions(configPath string, startHidden bool) error {
 	cfg, err := config.LoadOrCreate(configPath)
 	if err != nil {
 		return err
@@ -162,7 +163,7 @@ func runGUIWithOptions(configPath string) error {
 			agentErrCh <- err
 		}
 	}()
-	err = nativegui.Run(ctx, nativegui.Options{Agent: app, ConfigPath: configPath, AgentErrors: agentErrCh})
+	err = nativegui.Run(ctx, nativegui.Options{Agent: app, ConfigPath: configPath, AgentErrors: agentErrCh, StartHidden: startHidden})
 	stop()
 	return err
 }
@@ -171,7 +172,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, `Usage:
   wol-relay init  [-config wol-relay.json]
   wol-relay agent [-config wol-relay.json] [-light]
-  wol-relay gui   [-config wol-relay.json]
+  wol-relay gui   [-config wol-relay.json] [-minimized]
   wol-relay wake  [-config wol-relay.json] <host-name|mac-address>
   wol-relay send  -mac <mac-address> [-broadcast 255.255.255.255:9]
   wol-relay firewall [-config wol-relay.json]

@@ -13,6 +13,7 @@ type Options struct {
 	Agent       *agent.Agent
 	ConfigPath  string
 	AgentErrors <-chan error
+	StartHidden bool
 }
 
 func Run(ctx context.Context, opts Options) error {

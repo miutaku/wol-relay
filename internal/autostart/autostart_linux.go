@@ -48,7 +48,7 @@ func enable(configPath string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	args := []string{exe, "gui"}
+	args := []string{exe, "gui", "-minimized"}
 	if configPath != "" {
 		args = append(args, "-config", configPath)
 	}

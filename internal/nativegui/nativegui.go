@@ -15,6 +15,8 @@ import (
 	"fyne.io/fyne/v2"
 	fyneapp "fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/miutaku/wol-relay/internal/agent"
@@ -26,10 +28,12 @@ type Options struct {
 	Agent       *agent.Agent
 	ConfigPath  string
 	AgentErrors <-chan error
+	StartHidden bool
 }
 
 func Run(ctx context.Context, opts Options) error {
 	app := fyneapp.NewWithID("com.github.miutaku.wol-relay")
+	app.SetIcon(theme.ComputerIcon())
 	window := app.NewWindow("wol-relay")
 	window.Resize(fyne.NewSize(760, 560))
 
@@ -413,7 +417,15 @@ func Run(ctx context.Context, opts Options) error {
 		container.NewHBox(hostSaveButton, cancelHostEditButton),
 	)
 
-	header := container.NewBorder(nil, nil, widget.NewLabel("wol-relay"), nodeLabel)
+	showWindow := func() {
+		window.Show()
+		window.RequestFocus()
+	}
+	hideWindow := func() {
+		window.Hide()
+	}
+	minimizeButton := widget.NewButtonWithIcon("インジケーターに最小化", theme.MoveDownIcon(), hideWindow)
+	header := container.NewBorder(nil, nil, widget.NewLabel("wol-relay"), container.NewHBox(nodeLabel, minimizeButton))
 	repoURL, _ := url.Parse("https://github.com/miutaku/wol-relay")
 	intro := container.NewVBox(
 		widget.NewLabelWithStyle("Wake on LAN をルーターを越えて安全に届けます", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
@@ -428,6 +440,23 @@ func Run(ctx context.Context, opts Options) error {
 	content := container.NewBorder(container.NewVBox(header, intro), status, nil, nil, tabs)
 	window.SetContent(content)
 	refresh()
+
+	// Keep the relay running when its window is closed. SetSystemTrayWindow also
+	// makes a left click on the indicator restore the window on supported desktops.
+	if desktopApp, ok := app.(desktop.App); ok {
+		showItem := fyne.NewMenuItem("wol-relay を表示", showWindow)
+		showItem.Icon = theme.VisibilityIcon()
+		hideItem := fyne.NewMenuItem("インジケーターに最小化", hideWindow)
+		hideItem.Icon = theme.MoveDownIcon()
+		quitItem := fyne.NewMenuItem("終了", app.Quit)
+		quitItem.IsQuit = true
+		desktopApp.SetSystemTrayMenu(fyne.NewMenu("wol-relay", showItem, hideItem, fyne.NewMenuItemSeparator(), quitItem))
+		desktopApp.SetSystemTrayIcon(theme.ComputerIcon())
+		desktopApp.SetSystemTrayWindow(window)
+	} else {
+		// This is primarily a guard for non-desktop Fyne drivers.
+		window.SetCloseIntercept(window.Hide)
+	}
 
 	if opts.AgentErrors != nil {
 		go func() {
@@ -448,7 +477,11 @@ func Run(ctx context.Context, opts Options) error {
 		fyne.Do(app.Quit)
 	}()
 
-	window.ShowAndRun()
+	if opts.StartHidden {
+		app.Run()
+	} else {
+		window.ShowAndRun()
+	}
 	return nil
 }
 
